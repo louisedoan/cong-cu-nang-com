@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nàng Cơm · Doanh thu – Đơn hàng – Công nợ</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-mark">NC</div>
+      <div><b>Nàng Cơm</b><span>Kênh NPP · DT – ĐH – CN</span></div>
+    </div>
+    <nav id="nav">
+      <a data-page="tong-quan" href="#tong-quan"><i>▦</i>Tổng quan</a>
+      <a data-page="len-don" href="#len-don"><i>＋</i>Lên đơn hàng</a>
+      <a data-page="don-hang" href="#don-hang"><i>☰</i>Đơn hàng</a>
+      <a data-page="cong-no" href="#cong-no"><i>₫</i>Công nợ</a>
+      <a data-page="so-doanh-thu" href="#so-doanh-thu"><i>▤</i>Sổ doanh thu</a>
+      <a data-page="danh-muc" href="#danh-muc"><i>⚙</i>Danh mục &amp; cài đặt</a>
+    </nav>
+    <div class="side-lic" id="side-lic"></div>
+    <div class="side-foot" id="side-foot"></div>
+  </aside>
+  <main>
+    <header class="top">
+      <div><h1 id="page-title">Tổng quan</h1><p id="page-sub"></p></div>
+      <div class="top-actions">
+        <span class="today" id="today"></span>
+        <button class="btn ghost" id="btn-ledger">Xuất sổ Excel</button>
+      </div>
+    </header>
+    <section id="page" class="page"></section>
+  </main>
+</div>
+<div id="license-root"></div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+<script src="app.js"></script>
+</body>
+</html>

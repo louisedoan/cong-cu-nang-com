@@ -1,0 +1,55 @@
+CÔNG CỤ DOANH THU - ĐƠN HÀNG - CÔNG NỢ (kênh NPP Nàng Cơm)
+==========================================================
+
+MỞ CÔNG CỤ
+- Nhấp đúp "Mo-cong-cu.bat" -> trình duyệt tự mở giao diện (http://127.0.0.1:8765).
+- Cửa sổ đen phải để mở trong lúc dùng. Dùng xong thì đóng cửa sổ đen.
+- Lần đầu mở: công cụ tự đọc các file Excel trong D:\Công cụ Nàng Cơm\DT - DH - CN
+  + "DH mẫu ...xlsx"  (sheet "Đơn Đặt Hàng")  -> sản phẩm, bảng giá, khuyến mãi, mẫu in đơn
+  + "Doanh thu, công nợ NPP 2026.xlsx"        -> danh sách NPP, chiết khấu, công nợ chốt, doanh thu các tháng cũ
+  Các file gốc KHÔNG bị sửa.
+
+DỮ LIỆU LƯU Ở ĐÂU
+- Toàn bộ dữ liệu nằm trong 1 file Excel: "Dữ liệu\Dữ liệu DT - ĐH - CN.xlsx"
+  (sheet NPP, Sản phẩm, Bảng giá, Đơn hàng, Chi tiết đơn, Thanh toán, Cài đặt).
+- Mở xem bằng Excel được (bấm "mở bằng Excel" ở góc dưới bên trái giao diện).
+  Nếu sửa thẳng trong Excel: lưu và ĐÓNG file, công cụ sẽ tự đọc lại.
+  Khi đang mở file này trong Excel, công cụ không lưu được -> báo "đóng file rồi làm lại".
+- Mỗi lần lưu, bản cũ được sao lưu vào "Dữ liệu\Sao lưu" (giữ 60 bản).
+
+QUY TRÌNH
+1. LÊN ĐƠN: chọn NPP -> nhập số thùng.
+   - Giá & khuyến mãi lấy theo BẢNG GIÁ CỦA VÙNG mà NPP thuộc về (sửa ở Danh mục > Bảng giá & KM theo vùng).
+   - Chiết khấu thường, CK KM khác (Sọc Đỏ/Sọc Phấn 520), công nợ % : NHẬP trên từng đơn.
+   - Giá chai và số tặng sửa tay được từng dòng (ô vàng = đã sửa tay; để trống = theo bảng giá).
+   - HỖ TRỢ THỊ TRƯỜNG: hàng tặng riêng, chọn hàng + số thùng tùy ý, không tính tiền,
+     in ở phần "Hỗ Trợ Thương Mại" cuối đơn.
+   - "Lưu & xuất Đơn đặt hàng" -> file Excel đúng mẫu DH (giữ logo, ẩn các mặt hàng không đặt) + PDF.
+2. GIAO HÀNG: trang "Đơn hàng" -> "Đã giao", chọn ngày giao. Đơn vào SỔ DOANH THU và tính vào công nợ NPP.
+3. THU TIỀN: trang "Công nợ" -> "Thu tiền". Tiền trừ vào đơn giao sớm nhất trước; dư thì trừ tiếp công nợ chốt.
+   Muốn trừ thẳng nợ cũ: chọn "Trừ vào: Công nợ chốt".
+4. NHẮC NỢ CUỐI THÁNG: từ ngày 25 (đổi trong Cài đặt) tới hết tháng, trang "Tổng quan" báo đỏ và liệt kê
+   MỌI NPP còn nợ, chia theo GSM. Tháng nào cũng nhắc cho tới khi công nợ = 0.
+   Bấm "Soạn tin Zalo" -> sửa nếu cần -> "Copy nội dung" -> dán vào Zalo gửi anh quản lý.
+   Thông tin chuyển khoản in trong tin nhắn: nhập 1 lần ở "Danh mục & cài đặt" > "Cài đặt"
+   (lưu trong file dữ liệu trên máy, không nằm trong mã nguồn).
+5. SỔ EXCEL: nút "Xuất sổ Excel" -> file trong "Xuất file": sheet Nhắc nợ tháng, và mỗi tháng 1 sheet
+   đúng cột như file "Doanh thu, công nợ NPP" (thêm cột hàng HTTM).
+
+GHI CHÚ
+- Xuất đơn đặt hàng cần có Microsoft Excel trên máy.
+- Muốn nhập lại từ đầu từ file Excel gốc: đóng công cụ, đổi tên/chuyển file "Dữ liệu\Dữ liệu DT - ĐH - CN.xlsx"
+  sang chỗ khác rồi mở lại (mất các đơn/thanh toán đã nhập trong công cụ - nhớ giữ bản sao lưu).
+
+LICENSE (CẤP PHÉP) — BẮT BUỘC
+- Lần đầu dùng, hoặc khi license hết hạn, giao diện hiện màn hình "Kích hoạt license" kèm "Mã thiết bị".
+  Bấm "Sao chép" Mã thiết bị, gửi cho quản trị viên -> nhận mã bắt đầu bằng NC1- -> dán vào ô -> "Kích hoạt".
+- Mỗi mã chỉ dùng MỘT lần, cho ĐÚNG máy này, hiệu lực 48 giờ TÍNH TỪ LÚC QUẢN TRỊ VIÊN TẠO MÃ
+  (không phải lúc nhập) -> nhập ngay khi nhận được. Đóng/mở lại công cụ trong 48 giờ không phải nhập lại.
+- Góc dưới bên trái hiện "License còn ... giờ ... phút" (chuyển màu cam khi còn dưới 6 giờ). Bấm vào để xem
+  chi tiết, chính sách offline, hoặc nhập trước mã của chu kỳ tiếp theo.
+- Hết hạn: công cụ khóa các chức năng cho tới khi nhập mã mới. File "Dữ liệu\...xlsx", sao lưu và file đã xuất
+  GIỮ NGUYÊN (vẫn mở bằng Excel được). Nhập mã mới là làm tiếp với đúng dữ liệu cũ.
+- Không cần Internet. Giữ đồng hồ Windows đúng giờ (bật "Đặt giờ tự động"); lùi giờ sẽ bị khóa.
+- Cài lại Windows / đổi máy: Mã thiết bị đổi -> gửi mã mới cho quản trị viên để được cấp lại.
+- Thư mục "thu-vien\licensing" là phần cấp phép — không xóa, không sửa.

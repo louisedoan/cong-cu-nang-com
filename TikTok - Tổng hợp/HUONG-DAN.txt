@@ -1,0 +1,70 @@
+BÁO CÁO ĐƠN HÀNG TIKTOK THEO MẶT HÀNG
+=====================================
+
+CÁCH CHẠY
+1. Vào TikTok Seller Center > Đơn hàng > Xuất "Tất cả đơn hàng" (chọn khoảng ngày cần xem) > tải file .xlsx về.
+2. Kéo thả file .xlsx đó vào file Tao-bao-cao.bat (hoặc nhấp đúp Tao-bao-cao.bat rồi chọn file).
+3. Khoảng 20 giây sau, báo cáo tự lưu vào thư mục "Báo cáo" (ngay trong thư mục này), rồi tự mở ra.
+   Tên file ghi rõ khoảng ngày đặt đơn và giờ xuất dữ liệu, VD:
+   "Báo cáo TikTok 25.09.2026 - 30.09.2026 (xuất 01.10.2026 13h26).xlsx"
+   Cần máy có Python và Excel (đã có sẵn trên máy này).
+
+CẬP NHẬT TỒN KHO (file QL- kênh Online)
+- Mỗi lần kéo file TikTok vào Tao-bao-cao.bat, công cụ vừa tạo báo cáo vừa tự điền cột "Xuất TikTok"
+  (số chai rời kho theo ngày giao cho đơn vị vận chuyển, GỒM CẢ CHAI TẶNG) và "Số lượng đơn - Tiktok" vào file QL.
+  → Đóng file QL trước khi chạy. Mỗi lần cập nhật, bản cũ được sao lưu vào thư mục "Sao lưu QL".
+- Khi xuất file TikTok: chọn thời gian tạo đơn bắt đầu SỚM HƠN 3 NGÀY so với ngày muốn cập nhật
+  (cuối mỗi lần chạy, công cụ in ra ngày nên chọn cho lần sau). Ngày hôm nay chưa hết nên chưa điền.
+- Trong file QL (từ Tháng 10):
+  • Ô VÀNG: gõ tồn kiểm kho đầu tháng (chỉ tháng đầu tiên; các tháng sau tự nối từ tồn cuối tháng trước).
+  • Cột Nhập: hàng nhập kho + hàng hoàn về kho.   • Cột Xuất Shopee/khác: Shopee, bán lẻ, hư hỏng...
+  • Cột TÍM: công cụ tự điền, không gõ tay.        • Tồn: tự tính, số âm hiện màu đỏ.
+  • Sheet Tháng 9 giữ nguyên như cũ (sổ cũ, công cụ không sửa).
+- File "Ghép tên sản phẩm.xlsx": tên sản phẩm TikTok → trừ vào cột nào trong QL, mỗi sản phẩm bao nhiêu chai.
+  Sửa xong thì chạy lại với file TikTok cũ để cập nhật lại các ngày đó.
+- Muốn đổi sang file QL khác: xóa file duong-dan-file-QL.txt, lần chạy sau công cụ sẽ hỏi chọn file.
+
+GỬI SANG MÁY KHÁC
+- Copy NGUYÊN thư mục này (bắt buộc có thư mục "thu-vien" — thư viện đi kèm, không được xóa).
+- Máy đó chỉ cần có Python, không cần cài thêm gì. Nếu chưa có Python, Tao-bao-cao.bat sẽ hiện hướng dẫn cài.
+
+CÁC SHEET TRONG BÁO CÁO
+- Tổng quan: các con số chính + doanh thu theo tình trạng đơn (gửi sếp xem trang này trước)
+- Theo mặt hàng: số đơn, chai bán / tặng / hoàn, doanh thu của từng mặt hàng
+- Đơn hoàn & giao thất bại: danh sách từng đơn bị hoàn, tra mã đơn
+- Cách tính: giải thích từng con số
+- Dữ liệu chi tiết: toàn bộ dòng đơn gốc, có bộ lọc
+
+CÔNG THỨC (chỉ tính đơn KHÔNG bị hủy)
+- Chai tặng        = tổng Số lượng của các dòng có Đơn giá gốc = 0
+- Chai bán         = tổng Số lượng của các dòng có Đơn giá gốc > 0
+- Doanh thu        = tổng "SKU Subtotal After Discount" (tiền khách trả cho hàng, không gồm ship)
+- Tiền hoàn        = tiền hàng của các dòng có "Cancelation/Return Type" = Return/Refund
+- Doanh thu thuần  = Doanh thu - Tiền hoàn
+- Hàng giao thất bại = đơn "Đã hủy" nhưng có "Shipped Time" (đã gửi rồi bị trả về), không có tiền
+
+CHỐT DOANH THU MỖI 15 NGÀY
+Kỳ 1: xuất file đơn của kỳ 1 > chạy tool > ghi lại "Doanh thu thuần" (VD 99 triệu). Kỳ 1 chốt luôn, không sửa nữa.
+Kỳ 2: - Xuất file đơn của kỳ 2 > chạy tool > lấy Doanh thu thuần kỳ 2 (VD 120 triệu).
+      - Xuất LẠI file của kỳ 1 > chạy tool > Doanh thu thuần kỳ 1 bây giờ (VD 97,5 triệu).
+      - Phần giảm của kỳ 1 = 99 - 97,5 = 1,5 triệu (khách hoàn thêm / giao thất bại sau ngày chốt).
+      - Doanh thu thuần kỳ 2 = 120 - 1,5 = 118,5 triệu.
+Công thức: Doanh thu thuần kỳ N = Doanh thu thuần file kỳ N - (số đã chốt kỳ N-1 - số kỳ N-1 khi xuất lại)
+
+LƯU Ý
+- Đây là số trước phí sàn/hoa hồng/thuế. Muốn ra tiền thực nhận, xem file quyết toán: Tài chính > Thu nhập.
+- Không lọc theo cột "Order Substatus" để tìm đơn hoàn tất: TikTok ghi cột này theo từng dòng,
+  dòng quà tặng thường mang "Đã hoàn tất" dù dòng hàng bán cùng đơn vẫn là "Đã giao".
+- Nếu báo cáo đang mở trong Excel thì đóng lại trước khi chạy lại tool.
+
+LICENSE (CẤP PHÉP) — BẮT BUỘC
+- Lần đầu dùng, hoặc khi license hết hạn, công cụ hiện ô "Mã kích hoạt" kèm "Mã thiết bị" của máy.
+  Gửi Mã thiết bị (dạng XXXX-XXXX-XXXX-XXXX) cho quản trị viên -> nhận mã bắt đầu bằng NC1-
+  -> dán vào ô -> bấm "Kích hoạt".
+- Mỗi mã chỉ dùng MỘT lần, cho ĐÚNG máy này, hiệu lực 48 giờ TÍNH TỪ LÚC QUẢN TRỊ VIÊN TẠO MÃ
+  (không phải lúc nhập) -> nhập ngay khi nhận được. Đóng/mở lại công cụ trong 48 giờ không phải nhập lại.
+- Hết hạn: công cụ khóa chức năng cho tới khi nhập mã mới. Dữ liệu, báo cáo, file QL, sao lưu GIỮ NGUYÊN.
+- Không cần Internet. Giữ đồng hồ Windows đúng giờ (bật "Đặt giờ tự động"); lùi giờ sẽ bị khóa.
+- Cài lại Windows / đổi máy: Mã thiết bị đổi -> gửi mã mới cho quản trị viên để được cấp lại.
+- Xem trạng thái từ dòng lệnh: mở cmd trong thư mục "thu-vien" rồi gõ  python -m licensing status
+- Thư mục "thu-vien\licensing" là phần cấp phép — không xóa, không sửa.
