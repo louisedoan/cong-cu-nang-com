@@ -168,7 +168,7 @@ class LicenseClient:
     def _token(self, code):
         """Tách + xác minh chữ ký (có cache vì xác minh Python thuần tốn vài ms)."""
         tok = codec.decode_code(code)
-        key = tok.payload + tok.signature
+        key = tok.raw  # NC2: gồm cả giấy chứng nhận + danh sách gỡ quyền (đều nằm trong phần được ký)
         if key not in self._verified:
             if not tok.verify(self.public_key):
                 raise ActivationError('signature', 'Mã kích hoạt không hợp lệ: không do quản trị viên phát hành '
