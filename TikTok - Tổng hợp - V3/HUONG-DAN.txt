@@ -1,0 +1,42 @@
+BÁO CÁO SỐ LƯỢNG TIKTOK THEO NGÀY - V3 (không có tiền / doanh thu)
+==================================================================
+
+NGÀY TÍNH THẾ NÀO
+- Ngày D = các đơn khách ĐẶT từ 14h ngày D-1 đến trước 14h ngày D.
+  VD ngày 09/10 = đơn đặt từ 14h 08/10 đến trước 14h 09/10.
+- Vì vậy mỗi ngày cần 2 file: file đơn đặt ngày D-1 (lấy phần chiều) và file đơn đặt ngày D (phần sáng).
+
+MỖI SÁNG LÀM
+1. Vào TikTok Seller Center, xuất "Tất cả đơn hàng" của các đơn ĐẶT NGÀY HÔM QUA (trọn ngày).
+2. Bỏ file vừa tải (giữ nguyên tên) vào thư mục này (TikTok - Tổng hợp - V3).
+3. Nhấp đúp Tao-bao-cao.bat. Công cụ đọc TẤT CẢ file "Tất cả đơn hàng….xlsx" trong thư mục này.
+   (Hoặc kéo 1 hay nhiều file thả vào Tao-bao-cao.bat để chỉ đọc những file đó.)
+4. Báo cáo tự mở, lưu trong thư mục "Báo cáo".
+
+BÁO CÁO GỒM
+- Tổng hợp theo ngày: mỗi ngày 1 dòng (số đơn, chai xuất, chai bán, chai tặng, chai hoàn, giao thất bại,
+  đơn hủy, đơn chưa thanh toán). Bấm vào ngày để mở chi tiết.
+  Dòng tô cam "Chưa đủ dữ liệu" = còn thiếu file của một phần khung giờ -> thêm file rồi chạy lại.
+- Ngày dd.mm: từng mặt hàng - chai xuất / bán / tặng, số đơn khách mua 1-2-3-4-5-trên 5 chai,
+  chai khách trả lại, chai giao thất bại, chai trong đơn hủy.
+- Cách tính: giải thích từng cột.   - Dữ liệu chi tiết: từng dòng đơn, có bộ lọc.
+
+LƯU Ý
+- Đơn có trong nhiều file: lấy theo file xuất mới nhất, không đếm trùng.
+- Hàng hoàn / giao thất bại thường xảy ra vài ngày sau. Muốn số hoàn của một ngày chính xác,
+  xuất lại file của ngày đó sau vài ngày, bỏ vào thư mục (file mới hơn sẽ được ưu tiên), chạy lại.
+- Thư mục càng nhiều file thì chạy càng lâu. File cũ không cần nữa có thể chuyển sang thư mục khác.
+- Đổi giờ chốt: sửa dòng CUTOFF_HOUR = 14 trong bao_cao_theo_ngay.py.
+- Cần Python + Excel. Thư mục "thu-vien" là thư viện đi kèm, không được xóa.
+
+LICENSE (CẤP PHÉP) — BẮT BUỘC
+- Lần đầu dùng, hoặc khi license hết hạn, công cụ hiện ô "Mã kích hoạt" kèm "Mã thiết bị" của máy.
+  Gửi Mã thiết bị (dạng XXXX-XXXX-XXXX-XXXX) cho quản trị viên -> nhận mã bắt đầu bằng NC1-
+  -> dán vào ô -> bấm "Kích hoạt".
+- Mỗi mã chỉ dùng MỘT lần, cho ĐÚNG máy này, hiệu lực 48 giờ TÍNH TỪ LÚC QUẢN TRỊ VIÊN TẠO MÃ
+  (không phải lúc nhập) -> nhập ngay khi nhận được. Đóng/mở lại công cụ trong 48 giờ không phải nhập lại.
+- Hết hạn: công cụ khóa chức năng cho tới khi nhập mã mới. Dữ liệu, báo cáo, file QL, sao lưu GIỮ NGUYÊN.
+- Không cần Internet. Giữ đồng hồ Windows đúng giờ (bật "Đặt giờ tự động"); lùi giờ sẽ bị khóa.
+- Cài lại Windows / đổi máy: Mã thiết bị đổi -> gửi mã mới cho quản trị viên để được cấp lại.
+- Xem trạng thái từ dòng lệnh: mở cmd trong thư mục "thu-vien" rồi gõ  python -m licensing status
+- Thư mục "thu-vien\licensing" là phần cấp phép — không xóa, không sửa.

@@ -1,0 +1,58 @@
+BÁO CÁO SỐ LƯỢNG TIKTOK - V2
+============================
+
+1. Xuất file "Tất cả đơn hàng" (.xlsx) từ TikTok Seller Center.
+2. Kéo file đó thả vào Tao-bao-cao.bat, hoặc nhấp đúp file bat rồi chọn file.
+3. Xem báo cáo mới trong thư mục "Báo cáo". Công cụ cũng cập nhật file
+   "QL- kênh Online.xlsx" nằm NGAY TRONG thư mục V2 và sao lưu bản trước
+   khi cập nhật vào "Sao lưu QL".
+
+BÁO CÁO GỒM
+- Mau-dinh-dang.xlsx lưu các kiểu định dạng lấy từ file báo cáo mẫu. Giữ file
+  này trong thư mục V2; công cụ dùng nó mỗi lần xuất báo cáo.
+- Tổng quan: số đơn và số chai.
+- Theo mặt hàng QL: gộp theo loại hàng dùng trong file tồn kho.
+- Theo sản phẩm TikTok: xem từng tên sản phẩm TikTok, kể cả combo.
+- Dữ liệu số lượng: từng dòng SKU, không chứa số tiền hoặc thông tin người mua.
+
+CÁCH ĐẾM
+- "Chai đã gửi" = chai thực tế đã giao đơn vị vận chuyển, gồm chai tặng
+  và đơn giao thất bại. Combo nhân theo hệ số trong "Ghép tên sản phẩm.xlsx".
+- "Chai bán" và "Chai tặng" chỉ tính đơn không bị hủy. Quà tặng là dòng
+  có đơn giá gốc bằng 0; báo cáo không lấy hoặc hiển thị số tiền.
+- "Đơn SL bán = 2/3/4/5" = số đơn mà tổng Quantity SKU bán của mặt hàng
+  tương ứng bằng đúng 2/3/4/5. Không cộng SKU quà tặng và không nhân hệ số
+  combo vào nhóm SL. Cùng mã đơn, cùng mặt hàng được gộp trước khi đếm.
+- "Chai khách hoàn" = số chai TikTok ghi nhận khách trả.
+- "Chai giao thất bại" = chai đã gửi đi nhưng đơn sau đó bị hủy.
+- Hàng hoàn hoặc giao thất bại thực sự quay về kho: ghi tay vào cột Nhập
+  khi nhận hàng; công cụ không tự cộng hàng quay về.
+
+CẬP NHẬT TỒN KHO
+- File QL trong V2 là file riêng. Công cụ không mở hay ghi file QL của bản cũ.
+- Cột Xuất TikTok và số đơn TikTok tính theo ngày gửi cho đơn vị vận chuyển.
+- Chỉ cập nhật tới hôm qua, và cần file đơn hàng bắt đầu trước ngày muốn
+  cập nhật ít nhất 3 ngày. Chạy lại sẽ ghi đè, không cộng trùng.
+- Các sheet mẫu cũ có dữ liệu (như Tháng 9) được giữ nguyên. Sheet tháng
+  mới có ô vàng để nhập tồn đầu tháng; cột tím do công cụ tự điền.
+- Sản phẩm CHƯA GHÉP sẽ xuất hiện trong báo cáo. Công cụ thêm dòng vàng
+  trong file Ghép tên sản phẩm; điền đúng tên cột QL rồi chạy lại.
+- Đóng file QL và file ghép tên trong Excel trước khi chạy.
+
+CHỈ TẠO BÁO CÁO, KHÔNG CẬP NHẬT QL
+  python bao_cao_so_luong.py "đường dẫn file TikTok.xlsx" --report-only
+
+Cần Python; thư mục "thu-vien" chứa openpyxl đi kèm. Cần Microsoft Excel
+để tính sẵn công thức tồn kho khi cập nhật file QL.
+
+LICENSE (CẤP PHÉP) — BẮT BUỘC
+- Lần đầu dùng, hoặc khi license hết hạn, công cụ hiện ô "Mã kích hoạt" kèm "Mã thiết bị" của máy.
+  Gửi Mã thiết bị (dạng XXXX-XXXX-XXXX-XXXX) cho quản trị viên -> nhận mã bắt đầu bằng NC1-
+  -> dán vào ô -> bấm "Kích hoạt".
+- Mỗi mã chỉ dùng MỘT lần, cho ĐÚNG máy này, hiệu lực 48 giờ TÍNH TỪ LÚC QUẢN TRỊ VIÊN TẠO MÃ
+  (không phải lúc nhập) -> nhập ngay khi nhận được. Đóng/mở lại công cụ trong 48 giờ không phải nhập lại.
+- Hết hạn: công cụ khóa chức năng cho tới khi nhập mã mới. Dữ liệu, báo cáo, file QL, sao lưu GIỮ NGUYÊN.
+- Không cần Internet. Giữ đồng hồ Windows đúng giờ (bật "Đặt giờ tự động"); lùi giờ sẽ bị khóa.
+- Cài lại Windows / đổi máy: Mã thiết bị đổi -> gửi mã mới cho quản trị viên để được cấp lại.
+- Xem trạng thái từ dòng lệnh: mở cmd trong thư mục "thu-vien" rồi gõ  python -m licensing status
+- Thư mục "thu-vien\licensing" là phần cấp phép — không xóa, không sửa.

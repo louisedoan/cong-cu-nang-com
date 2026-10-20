@@ -1,0 +1,61 @@
+# ============================================================
+# KHÔNG đưa dữ liệu công ty / khách hàng lên GitHub.
+# Chỉ đưa CODE (chất xám của mình). Mọi file Excel, báo cáo,
+# dữ liệu, sao lưu đều bị loại ở đây.
+# ============================================================
+
+# Mọi file bảng tính (đơn hàng, công nợ, NPP, báo cáo, mẫu có logo công ty...)
+*.xlsx
+*.xlsm
+*.xls
+*.csv
+*.xltx
+~$*
+
+# Thư mục chứa dữ liệu / kết quả xuất ra / sao lưu
+Báo cáo/
+Xuất file/
+Dữ liệu/
+Sao lưu/
+Sao lưu QL/
+
+# File nén (thường chứa nguyên thư mục công cụ kèm dữ liệu thật)
+*.rar
+*.zip
+*.7z
+
+# File cấu hình đường dẫn cục bộ (mỗi máy một khác)
+duong-dan-file-QL.txt
+
+# Rác Python sinh ra khi chạy
+__pycache__/
+*.pyc
+*.pyo
+
+# Sổ tiến độ / tài liệu thiết kế nội bộ khi build (lưu ở repo quản trị riêng tư, không công khai)
+.superpowers/
+docs/superpowers/
+.claude/settings.local.json
+
+# Rác hệ điều hành
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ============================================================
+# LICENSE: không bao giờ đưa khóa bí mật / sổ quản trị / trạng thái license lên GitHub
+# (khóa ký thật nằm ở %LOCALAPPDATA%\NangCom\license-admin, ngoài repo)
+# ============================================================
+signing_key.dat
+*.nckey
+*.pem
+*.key
+*.sqlite3
+*.db
+license.dat
+license.dat.*
+license-admin/
+.env
+.env.*
+# danh sách mã kích hoạt nếu lỡ lưu ra file
+*ma-kich-hoat*.txt

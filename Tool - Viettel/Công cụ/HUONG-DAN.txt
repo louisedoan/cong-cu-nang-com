@@ -1,0 +1,57 @@
+CÔNG CỤ QUẢN LÝ KÊNH VIETTEL (Bưu cục + Thương Mại)
+=====================================================
+
+MỞ CÔNG CỤ
+- Nhấp đúp "Mo-cong-cu.bat". Cửa sổ đen hiện ra và tự mở trình duyệt.
+- ĐỪNG ĐÓNG cửa sổ đen trong lúc dùng. Dùng xong thì đóng nó lại.
+- Nếu máy báo chưa có Python: tải tại https://www.python.org/downloads/ và NHỚ TÍCH
+  "Add python.exe to PATH" khi cài. Máy cần có Microsoft Excel để xuất đơn ra file.
+
+LẦN ĐẦU CHẠY
+- Công cụ tự đọc các file Excel trong thư mục "Tool - Viettel":
+  + "BÁO CÁO VIETTEL TM.xlsx"  -> danh mục sản phẩm, giá vốn/giá bán, hoa hồng, 34 tỉnh.
+  + "Viettel - Đơn hàng mẫu.xlsx" -> mẫu đơn/phiếu xuất kho + bảng tải trọng.
+- Mọi dữ liệu sau đó lưu trong "Dữ liệu\Dữ liệu Viettel.xlsx" (mở xem được bằng Excel).
+  Trước mỗi lần lưu, bản cũ được chép vào "Dữ liệu\Sao lưu".
+
+CÁC TRANG
+- Bưu cục Viettel / Thương Mại: mỗi kênh có Tổng quan, Lên đơn hàng, Đơn hàng.
+- Danh mục & thiết lập (dùng chung): sửa giá/giá vốn/ĐVT, xem combo, sửa bảng tải trọng,
+  danh sách tỉnh, người nhận hoa hồng giới thiệu và % hoa hồng (người giới thiệu, Bưu cục/Tỉnh).
+
+LÊN ĐƠN
+- Chọn khách/kho, tỉnh, ngày; nhập Combo (số phần) và/hoặc Mặt hàng lẻ (số thùng).
+- Combo "chọn 1 trong 3" (Muối Ruốc / Mắm Nêm / Sốt Tiêu Ngào Đường): PHẢI chọn món trước khi lưu.
+- Nhập Chiết khấu %, Công nợ (tiền chưa thu), Phí vận chuyển, Chi phí khác nếu có.
+- Bấm "Lưu & xuất đơn + PXK" để tạo file Excel đơn + phiếu xuất kho và PDF.
+
+PHIẾU XUẤT KHO
+- Tự tách combo thành sản phẩm lẻ, quy ra Thùng + Lẻ, và tính TẢI TRỌNG (kg).
+  Lưu ý: tải trọng dùng quy cách trong bảng "Tải trọng" (khác quy cách đơn hàng).
+- Giao nhiều đợt: ở trang Đơn hàng bấm "Giao hàng", nhập số giao mỗi đợt (tối đa 3 đợt);
+  công cụ tự tính Đã giao / Còn nợ và cập nhật trạng thái đơn.
+
+DOANH THU & LỢI NHUẬN (báo cáo)
+- Doanh thu = giá bán niêm yết × số lượng.
+- Lợi nhuận = Doanh thu − Giá vốn − Chiết khấu − % hoa hồng người giới thiệu − % hoa hồng Tỉnh − Phí VC
+  − Chi phí khác. (Luôn trừ cả 2 khoản hoa hồng; đơn chiết khấu cao có thể ra lỗ.)
+- Tên người nhận hoa hồng và các tỷ lệ lấy từ file danh mục lúc chạy lần đầu, sửa ở Danh mục & thiết lập.
+  Chúng chỉ lưu trong file dữ liệu trên máy, không nằm trong mã nguồn.
+
+LƯU Ý
+- Khi công cụ đang chạy, ĐỪNG mở file "Dữ liệu Viettel.xlsx" hay file đang xuất bằng Excel,
+  nếu không sẽ không lưu/xuất được (công cụ sẽ báo "đóng file Excel rồi làm lại").
+- Có thể sửa trực tiếp file dữ liệu bằng Excel lúc công cụ đang chạy; công cụ sẽ tự đọc lại.
+
+LICENSE (CẤP PHÉP) — BẮT BUỘC
+- Lần đầu dùng, hoặc khi license hết hạn, giao diện hiện màn hình "Kích hoạt license" kèm "Mã thiết bị".
+  Bấm "Sao chép" Mã thiết bị, gửi cho quản trị viên -> nhận mã bắt đầu bằng NC1- -> dán vào ô -> "Kích hoạt".
+- Mỗi mã chỉ dùng MỘT lần, cho ĐÚNG máy này, hiệu lực 48 giờ TÍNH TỪ LÚC QUẢN TRỊ VIÊN TẠO MÃ
+  (không phải lúc nhập) -> nhập ngay khi nhận được. Đóng/mở lại công cụ trong 48 giờ không phải nhập lại.
+- Góc dưới bên trái hiện "License còn ... giờ ... phút" (chuyển màu cam khi còn dưới 6 giờ). Bấm vào để xem
+  chi tiết, chính sách offline, hoặc nhập trước mã của chu kỳ tiếp theo.
+- Hết hạn: công cụ khóa các chức năng cho tới khi nhập mã mới. File "Dữ liệu\...xlsx", sao lưu và file đã xuất
+  GIỮ NGUYÊN (vẫn mở bằng Excel được). Nhập mã mới là làm tiếp với đúng dữ liệu cũ.
+- Không cần Internet. Giữ đồng hồ Windows đúng giờ (bật "Đặt giờ tự động"); lùi giờ sẽ bị khóa.
+- Cài lại Windows / đổi máy: Mã thiết bị đổi -> gửi mã mới cho quản trị viên để được cấp lại.
+- Thư mục "thu-vien\licensing" là phần cấp phép — không xóa, không sửa.

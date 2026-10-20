@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nàng Cơm · Kênh Viettel</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-mark">NC</div>
+      <div><b>Nàng Cơm</b><span>Kênh Viettel</span></div>
+    </div>
+    <nav id="nav">
+      <div class="nav-group">Bưu cục Viettel</div>
+      <a data-page="buu_cuc/tong-quan" href="#buu_cuc/tong-quan"><i>▦</i>Tổng quan</a>
+      <a data-page="buu_cuc/len-don" href="#buu_cuc/len-don"><i>＋</i>Lên đơn hàng</a>
+      <a data-page="buu_cuc/don-hang" href="#buu_cuc/don-hang"><i>☰</i>Đơn hàng</a>
+      <div class="nav-group">Thương Mại</div>
+      <a data-page="tm/tong-quan" href="#tm/tong-quan"><i>▦</i>Tổng quan</a>
+      <a data-page="tm/len-don" href="#tm/len-don"><i>＋</i>Lên đơn hàng</a>
+      <a data-page="tm/don-hang" href="#tm/don-hang"><i>☰</i>Đơn hàng</a>
+      <div class="nav-group">Chung</div>
+      <a data-page="danh-muc" href="#danh-muc"><i>⚙</i>Danh mục &amp; thiết lập</a>
+    </nav>
+    <div class="side-lic" id="side-lic"></div>
+    <div class="side-foot" id="side-foot"></div>
+  </aside>
+  <main>
+    <header class="top">
+      <div><h1 id="page-title">Tổng quan</h1><p id="page-sub"></p></div>
+      <div class="top-actions">
+        <span class="today" id="today"></span>
+      </div>
+    </header>
+    <section id="page" class="page"></section>
+  </main>
+</div>
+<div id="license-root"></div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+BÁO CÁO ĐƠN HÀNG SHOPEE THEO MẶT HÀNG
+========================================
+
+CÁCH CHẠY
+1. Vào Shopee Seller Center > Đơn hàng > Xuất file "Tất cả đơn hàng" (chọn khoảng ngày cần xem) > tải file .xlsx về.
+2. Kéo thả file .xlsx đó vào file Tao-bao-cao.bat (hoặc nhấp đúp Tao-bao-cao.bat rồi chọn file).
+3. Khoảng 20-30 giây sau, báo cáo tự lưu vào thư mục "Báo cáo" (ngay trong thư mục này), rồi tự mở ra.
+   Tên file ghi rõ khoảng ngày đặt đơn và giờ xuất dữ liệu, VD:
+   "Báo cáo Shopee 01.07.2026 - 31.07.2026 (xuất 31.07.2026 0h00).xlsx"
+   Cần máy có Python và Excel (đã có sẵn trên máy này).
+
+GỬI SANG MÁY KHÁC
+- Copy NGUYÊN thư mục này (bắt buộc có thư mục "thu-vien" — thư viện đi kèm, không được xóa).
+- Máy đó chỉ cần có Python, không cần cài thêm gì. Nếu chưa có Python, Tao-bao-cao.bat sẽ hiện hướng dẫn cài.
+
+CÁC SHEET TRONG BÁO CÁO
+- Tổng quan:         Các con số KPI chính + bảng doanh thu theo trạng thái đơn (gửi xem trang này trước)
+- Theo mặt hàng:     Số đơn, số lượng, doanh thu của từng combo mặt hàng + phân loại (size)
+- Đơn hoàn & hủy:   Danh sách từng đơn bị hoàn trả hoặc bị hủy, tra mã đơn
+- Cách tính:         Giải thích từng con số
+- Dữ liệu chi tiết: Toàn bộ dòng đơn gốc, có bộ lọc
+
+PHÂN LOẠI ĐƠN
+- Bán:  Đơn "Hoàn thành" không có yêu cầu hoàn trả → tính vào doanh thu
+- Hoàn: Đơn "Hoàn thành" có "Trạng thái Trả hàng/Hoàn tiền" = "Đã Chấp Thuận Yêu Cầu" → trừ khỏi doanh thu
+- Đang xử lý: Đơn chưa "Hoàn thành" (chờ xác nhận, chờ lấy hàng, đang giao...) → CHƯA tính doanh thu
+- Hủy:  Đơn "Đã hủy" → không tính doanh thu, hiển thị trong "Đơn hoàn & hủy"
+
+CÔNG THỨC
+- Doanh thu          = tổng "Tổng số tiền Người mua thanh toán" của đơn Bán và đơn Hoàn
+- Tiền hoàn          = tổng "Tổng số tiền Người mua thanh toán" của đơn Hoàn
+- Doanh thu thuần    = Doanh thu - Tiền hoàn
+- Shopee trợ giá     = tổng cột "Được Shopee trợ giá" của đơn Bán
+
+LƯU Ý
+- Đây là số trước phí sàn/hoa hồng/thuế. Muốn ra tiền thực nhận, xem file quyết toán: Tài chính > Thu nhập.
+- Nếu báo cáo đang mở trong Excel thì đóng lại trước khi chạy lại tool.
+- Tên mặt hàng rút gọn = phần trước dấu " – " trong tên sản phẩm Shopee.
+
+LICENSE (CẤP PHÉP) — BẮT BUỘC
+- Lần đầu dùng, hoặc khi license hết hạn, công cụ hiện ô "Mã kích hoạt" kèm "Mã thiết bị" của máy.
+  Gửi Mã thiết bị (dạng XXXX-XXXX-XXXX-XXXX) cho quản trị viên -> nhận mã bắt đầu bằng NC1-
+  -> dán vào ô -> bấm "Kích hoạt".
+- Mỗi mã chỉ dùng MỘT lần, cho ĐÚNG máy này, hiệu lực 48 giờ TÍNH TỪ LÚC QUẢN TRỊ VIÊN TẠO MÃ
+  (không phải lúc nhập) -> nhập ngay khi nhận được. Đóng/mở lại công cụ trong 48 giờ không phải nhập lại.
+- Hết hạn: công cụ khóa chức năng cho tới khi nhập mã mới. Dữ liệu, báo cáo, file QL, sao lưu GIỮ NGUYÊN.
+- Không cần Internet. Giữ đồng hồ Windows đúng giờ (bật "Đặt giờ tự động"); lùi giờ sẽ bị khóa.
+- Cài lại Windows / đổi máy: Mã thiết bị đổi -> gửi mã mới cho quản trị viên để được cấp lại.
+- Xem trạng thái từ dòng lệnh: mở cmd trong thư mục "thu-vien" rồi gõ  python -m licensing status
+- Thư mục "thu-vien\licensing" là phần cấp phép — không xóa, không sửa.
