@@ -88,8 +88,8 @@ async function checkLicense() {
 function licenseForm(lic) {
   return `<div class="field"><label>Mã thiết bị của máy này — gửi cho quản trị viên để xin mã</label>
       <div class="devid"><code>${esc(lic.device_id || '—')}</code>${lic.device_id ? '<button class="btn ghost sm" id="lic-copy-dev">Sao chép</button>' : ''}</div></div>
-    <div class="field"><label for="lic-code">Mã kích hoạt (dán nguyên mã, bắt đầu bằng NC1-)</label>
-      <textarea id="lic-code" class="lic-code" rows="4" spellcheck="false" placeholder="NC1-XXXX-XXXX-…" ${lic.can_activate ? '' : 'disabled'}></textarea></div>
+    <div class="field"><label for="lic-code">Mã kích hoạt (dán nguyên mã, bắt đầu bằng NC)</label>
+      <textarea id="lic-code" class="lic-code" rows="4" spellcheck="false" placeholder="NC…-XXXX-XXXX-…" ${lic.can_activate ? '' : 'disabled'}></textarea></div>
     <div id="lic-err"></div>`;
 }
 function bindLicenseForm(onOk) {

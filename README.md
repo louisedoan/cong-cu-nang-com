@@ -29,7 +29,7 @@ Mỗi máy cần **mã kích hoạt** do quản trị viên cấp. Không cần 
 
 1. Mở công cụ → màn hình **Kích hoạt license** hiện **Mã thiết bị** của máy (dạng `XXXX-XXXX-XXXX-XXXX`).
    Bấm *Sao chép* và gửi cho quản trị viên.
-2. Nhận mã bắt đầu bằng `NC1-…` → dán vào ô *Mã kích hoạt* → **Kích hoạt**.
+2. Nhận mã bắt đầu bằng `NC1-…` hoặc `NC2-…` → dán vào ô *Mã kích hoạt* → **Kích hoạt**.
 3. Dùng bình thường. Đóng/mở lại không phải nhập lại mã. App web hiện *License còn … giờ … phút* ở góc trái dưới.
 
 Quy tắc:

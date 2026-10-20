@@ -41,7 +41,7 @@ LƯU Ý
 
 LICENSE (CẤP PHÉP) — BẮT BUỘC
 - Lần đầu dùng, hoặc khi license hết hạn, công cụ hiện ô "Mã kích hoạt" kèm "Mã thiết bị" của máy.
-  Gửi Mã thiết bị (dạng XXXX-XXXX-XXXX-XXXX) cho quản trị viên -> nhận mã bắt đầu bằng NC1-
+  Gửi Mã thiết bị (dạng XXXX-XXXX-XXXX-XXXX) cho quản trị viên -> nhận mã bắt đầu bằng NC1- hoặc NC2-
   -> dán vào ô -> bấm "Kích hoạt".
 - Mỗi mã chỉ dùng MỘT lần, cho ĐÚNG máy này, hiệu lực 48 giờ TÍNH TỪ LÚC QUẢN TRỊ VIÊN TẠO MÃ
   (không phải lúc nhập) -> nhập ngay khi nhận được. Đóng/mở lại công cụ trong 48 giờ không phải nhập lại.
