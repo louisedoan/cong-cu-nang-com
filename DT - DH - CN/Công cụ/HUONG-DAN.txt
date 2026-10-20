@@ -4,6 +4,7 @@ CÔNG CỤ DOANH THU - ĐƠN HÀNG - CÔNG NỢ (kênh NPP Nàng Cơm)
 MỞ CÔNG CỤ
 - Nhấp đúp "Mo-cong-cu.bat" -> trình duyệt tự mở giao diện (http://127.0.0.1:8765).
 - Cửa sổ đen phải để mở trong lúc dùng. Dùng xong thì đóng cửa sổ đen.
+- Lỡ mở "Mo-cong-cu.bat" lần nữa khi công cụ đang chạy: công cụ chỉ mở lại giao diện đang có (không chạy 2 bản).
 - Lần đầu mở: công cụ tự đọc các file Excel trong D:\Công cụ Nàng Cơm\DT - DH - CN
   + "DH mẫu ...xlsx"  (sheet "Đơn Đặt Hàng")  -> sản phẩm, bảng giá, khuyến mãi, mẫu in đơn
   + "Doanh thu, công nợ NPP 2026.xlsx"        -> danh sách NPP, chiết khấu, công nợ chốt, doanh thu các tháng cũ

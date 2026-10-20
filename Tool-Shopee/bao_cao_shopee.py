@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import sys
+import unicodedata
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -58,9 +59,20 @@ RIGHT  = Alignment(horizontal='right',  vertical='center')
 def num(x):
     if x is None or x == '' or x == '-':
         return 0.0
+    if isinstance(x, (int, float)):
+        return float(x)
+    t = re.sub(r'[^\d,.\-]', '', str(x))  # bỏ "đ", "₫", khoảng trắng
+    if ',' in t and '.' in t:  # dấu xuất hiện sau cùng là dấu thập phân
+        t = t.replace(',', '') if t.rfind('.') > t.rfind(',') else t.replace('.', '').replace(',', '.')
+    elif re.fullmatch(r'-?\d{1,3}(,\d{3})+', t):  # 1,250,000 / 1,250 -> phân cách nghìn
+        t = t.replace(',', '')
+    elif ',' in t:  # 1,5 -> 1.5
+        t = t.replace(',', '.')
+    elif re.fullmatch(r'-?\d{1,3}(\.\d{3}){2,}', t):  # 1.250.000 -> phân cách nghìn
+        t = t.replace('.', '')
     try:
-        return float(str(x).replace(',', '.'))
-    except (ValueError, TypeError):
+        return float(t)
+    except ValueError:
         return 0.0
 
 
@@ -90,20 +102,45 @@ def parse_date(val):
     return None
 
 
+# Cột cần đọc trong file "Tất cả đơn hàng" của Shopee: tên trường -> tên cột ở dòng tiêu đề.
+# Tìm theo TÊN nên Shopee đổi thứ tự / thêm cột vẫn đọc đúng; thiếu cột thì báo rõ thay vì đọc nhầm số.
+SHOPEE_COLS = {
+    'order': 'Mã đơn hàng', 'created': 'Ngày đặt hàng', 'status': 'Trạng Thái Đơn Hàng', 'cancel_reason': 'Lý do hủy',
+    'sent': 'Ngày gửi hàng', 'return_status': 'Trạng thái Trả hàng/Hoàn tiền', 'sku': 'SKU sản phẩm',
+    'full': 'Tên sản phẩm', 'size': 'Tên phân loại hàng', 'price_orig': 'Giá gốc', 'seller_disc': 'Người bán trợ giá',
+    'shopee_disc': 'Được Shopee trợ giá', 'price_promo': 'Giá ưu đãi', 'qty': 'Số lượng',
+    'qty_returned': 'Số lượng sản phẩm được hoàn trả', 'paid': 'Tổng số tiền Người mua thanh toán',
+    'payment': 'Phương thức thanh toán', 'province': 'Tỉnh/Thành phố',
+}
+
+
+def text(value):
+    """Chuỗi chuẩn: file Shopee có chỗ ghi tiếng Việt dạng tổ hợp (NFD) -> đưa về NFC để so khớp đúng."""
+    return re.sub(r'\s+', ' ', unicodedata.normalize('NFC', str(value or ''))).strip()
+
+
+def _hkey(value):
+    return text(value).lower()
+
+
 def read_orders(src):
-    """Đọc file Shopee, trả về list dict theo header dòng 1."""
+    """Đọc file Shopee -> list dict theo tên trường ở SHOPEE_COLS. Thiếu cột -> ValueError."""
     wb = load_workbook(src, data_only=True)
-    ws = wb.worksheets[0]
-    it  = ws.iter_rows(values_only=True)
-    hdr = list(next(it))
-    data = []
-    for r in it:
-        d = dict(zip(hdr, r))
-        order_id = str(d.get(hdr[0]) or '').strip()
-        if order_id:
-            data.append(d)
-    wb.close()
-    return data
+    try:
+        it = wb.worksheets[0].iter_rows(values_only=True)
+        hdr = [_hkey(h) for h in next(it, ())]
+        pos = {f: hdr.index(_hkey(name)) for f, name in SHOPEE_COLS.items() if _hkey(name) in hdr}
+        missing = [name for f, name in SHOPEE_COLS.items() if f not in pos]
+        if missing:
+            raise ValueError('File này không đúng mẫu "Tất cả đơn hàng" xuất từ Shopee — thiếu cột: ' + ', '.join(missing))
+        data = []
+        for r in it:
+            d = {f: (r[i] if i < len(r) else None) for f, i in pos.items()}
+            if str(d['order'] or '').strip():
+                data.append(d)
+        return data
+    finally:
+        wb.close()
 
 
 def to_rows(data):
@@ -115,37 +152,31 @@ def to_rows(data):
     if not data:
         return []
 
-    hdr = list(data[0].keys())
-
-    def col(idx):   # 1-indexed
-        return hdr[idx - 1]
-
     rows        = []
     seen_orders = set()
+    seen_po     = set()   # (mã đơn, mặt hàng, phân loại) đã đếm
 
     for r in data:
-        def v(idx):
-            return r.get(col(idx))
-
-        order_id      = str(v(1)  or '').strip()
-        order_date    = parse_date(v(3))
-        status        = str(v(4)  or '').strip()
-        cancel_reason = str(v(6)  or '').strip()
-        sent_date     = parse_date(v(13))
-        return_status = str(v(15) or '').strip()
-        sku           = str(v(16) or '').strip()
-        full_name     = re.sub(r'\s+', ' ', str(v(17) or '')).strip()
-        raw_size      = str(v(21) or '').strip()
+        v = r.get
+        order_id      = text(v('order'))
+        order_date    = parse_date(v('created'))
+        status        = text(v('status'))
+        cancel_reason = text(v('cancel_reason'))
+        sent_date     = parse_date(v('sent'))
+        return_status = text(v('return_status'))
+        sku           = text(v('sku'))
+        full_name     = text(v('full'))
+        raw_size      = text(v('size'))
         size          = raw_size if raw_size else '—'   # dùng '—' khi không có phân loại
-        price_orig    = num(v(22))
-        seller_disc   = num(v(23))
-        shopee_disc   = num(v(24))
-        price_promo   = num(v(26))
-        qty           = int(num(v(27)))
-        qty_returned  = int(num(v(28)))
-        paid          = num(v(29))   # tiền khách trả theo từng dòng
-        payment_method = str(v(49) or '').strip()
-        province      = str(v(57) or '').strip()
+        price_orig    = num(v('price_orig'))
+        seller_disc   = num(v('seller_disc'))
+        shopee_disc   = num(v('shopee_disc'))
+        price_promo   = num(v('price_promo'))
+        qty           = int(num(v('qty')))
+        qty_returned  = int(num(v('qty_returned')))
+        paid          = num(v('paid'))   # tiền khách trả theo từng dòng
+        payment_method = text(v('payment'))
+        province      = text(v('province'))
 
         prod = short_name(full_name)
 
@@ -185,6 +216,9 @@ def to_rows(data):
         if is_first:
             seen_orders.add(order_id)
         cnt_o = 1 if is_first else 0
+        po = (order_id, prod, size)
+        cnt_po = 0 if po in seen_po else 1
+        seen_po.add(po)
 
         rows.append(dict(
             order         = order_id,
@@ -209,6 +243,7 @@ def to_rows(data):
             payment       = payment_method,
             province      = province,
             cnt_o         = cnt_o,
+            cnt_po        = cnt_po,
         ))
     return rows
 
@@ -236,8 +271,9 @@ DATA_COLS = [
     ('province',      'Tỉnh/Thành phố',   22, None),
     ('group',         'Phân loại đơn',    15, None),
     ('cnt_o',         'Cột phụ: đếm đơn', 12, None),
+    ('cnt_po',        'Cột phụ: đếm đơn theo mặt hàng', 12, None),
 ]
-HELPERS = {'cnt_o'}
+HELPERS = {'cnt_o', 'cnt_po'}
 DCOL = {k: get_column_letter(i) for i, (k, *_) in enumerate(DATA_COLS, 1)}
 
 # ---- sheet "Theo mặt hàng" ----
@@ -370,11 +406,11 @@ def sheet_products(wb, rows, n, period):
             'prod':        prod,
             'size':        size,
             # Số đơn: chỉ đếm đơn Bán (không tính Hoàn vào cột này để khớp trực giác)
-            'orders':      f'=SUMIFS({rng("cnt_o", n)},{b_ban})',
+            'orders':      f'=SUMIFS({rng("cnt_po", n)},{b_ban})',
             # Tổng SL xuất: chỉ đơn Bán
             'qty':         f'=SUMIFS({rng("qty", n)},{b_ban})',
             # Đơn hủy
-            'cancelled':   f'=SUMIFS({rng("cnt_o", n)},{b_huy})',
+            'cancelled':   f'=SUMIFS({rng("cnt_po", n)},{b_huy})',
             # SL hoàn trả: lấy qty_returned của đơn Bán + qty của đơn Hoàn
             'returned':    f'=SUMIFS({rng("qty_returned", n)},{b_ban})+SUMIFS({rng("qty", n)},{b_hoan})',
             # Doanh thu (khách trả) = tiền khách đã trả cho đơn Bán + đơn Hoàn (đơn Hoàn sau đó được hoàn tiền)
@@ -398,6 +434,8 @@ def sheet_products(wb, rows, n, period):
     for key, *_ in PROD_COLS[4:]:
         c = P[key]
         ws[f'{c}{tr}'] = f'=SUM({c}{first}:{c}{last})'
+    # đơn hủy tổng: đếm đơn không trùng (1 đơn hủy nhiều mặt hàng chỉ tính 1)
+    ws[f'{P["cancelled"]}{tr}'] = f'=SUMIFS({rng("cnt_o", n)},{rng("group", n)},"Hủy")'
     ws.row_dimensions[tr].height = 22
 
     # Định dạng
@@ -804,8 +842,11 @@ def recalc_with_excel(path):
     ps  = ('$x = New-Object -ComObject Excel.Application; $x.DisplayAlerts = $false; '
            'try { $w = $x.Workbooks.Open($env:BAO_CAO_PATH); $x.CalculateFull(); $w.Save(); $w.Close($false) } '
            'finally { $x.Quit(); [void][Runtime.InteropServices.Marshal]::ReleaseComObject($x) }')
-    res = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command', ps],
-                         env=dict(os.environ, BAO_CAO_PATH=str(path)), capture_output=True)
+    try:
+        res = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command', ps],
+                             env=dict(os.environ, BAO_CAO_PATH=str(path)), capture_output=True, timeout=300)
+    except subprocess.TimeoutExpired:  # Excel treo / đang hiện hộp thoại: báo như trường hợp không tính được
+        return False
     return res.returncode == 0
 
 
@@ -832,7 +873,11 @@ def main():
         return
     src  = Path(src)
     print(f'Đang đọc: {src.name}')
-    data = read_orders(src)
+    try:
+        data = read_orders(src)
+    except (ValueError, OSError) as e:
+        print(f'(!) Không đọc được file: {e}')
+        return
     print(f'  → {len(data)} dòng dữ liệu')
     rows = to_rows(data)
 

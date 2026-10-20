@@ -4,6 +4,7 @@ CÔNG CỤ QUẢN LÝ KÊNH VIETTEL (Bưu cục + Thương Mại)
 MỞ CÔNG CỤ
 - Nhấp đúp "Mo-cong-cu.bat". Cửa sổ đen hiện ra và tự mở trình duyệt.
 - ĐỪNG ĐÓNG cửa sổ đen trong lúc dùng. Dùng xong thì đóng nó lại.
+- Lỡ mở "Mo-cong-cu.bat" lần nữa khi công cụ đang chạy: công cụ chỉ mở lại giao diện đang có (không chạy 2 bản).
 - Nếu máy báo chưa có Python: tải tại https://www.python.org/downloads/ và NHỚ TÍCH
   "Add python.exe to PATH" khi cài. Máy cần có Microsoft Excel để xuất đơn ra file.
 

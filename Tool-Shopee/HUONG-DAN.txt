@@ -36,6 +36,8 @@ LƯU Ý
 - Đây là số trước phí sàn/hoa hồng/thuế. Muốn ra tiền thực nhận, xem file quyết toán: Tài chính > Thu nhập.
 - Nếu báo cáo đang mở trong Excel thì đóng lại trước khi chạy lại tool.
 - Tên mặt hàng rút gọn = phần trước dấu " – " trong tên sản phẩm Shopee.
+- Công cụ tìm cột theo TÊN tiêu đề (Shopee đổi thứ tự cột vẫn đọc đúng). Nếu Shopee đổi tên cột,
+  công cụ báo rõ thiếu cột nào thay vì đọc nhầm số.
 
 LICENSE (CẤP PHÉP) — BẮT BUỘC
 - Lần đầu dùng, hoặc khi license hết hạn, công cụ hiện ô "Mã kích hoạt" kèm "Mã thiết bị" của máy.

@@ -61,6 +61,8 @@ STATUS_VN = {'cho_giao': 'Chờ giao', 'da_giao': 'Đã giao', 'huy': 'Đã hủ
 LINE_VN = {'ban': 'Hàng bán', 'tang_km': 'Hàng tặng KM', 'httm': 'Hỗ trợ thị trường'}
 KM_VN = {'cung_loai': 'Tặng cùng loại', 'khac': 'Tặng SP khác', 'khong': 'Không', 'hang_tang': 'Dòng hàng tặng'}
 LOCK = threading.Lock()
+EXCEL_TIMEOUT = 300  # giây: Excel treo thì báo lỗi thay vì khóa công cụ mãi
+MAX_BODY = 5 * 1024 * 1024  # giới hạn dữ liệu gửi lên máy chủ
 APP_ID = 'dt-dh-cn'  # nhận ra chính công cụ này khi đang chạy ở cửa sổ khác
 LICENSE = licensing.LicenseClient()
 
@@ -421,7 +423,10 @@ def save_db(db):
     wb.save(tmp)
     backup = None
     if DATA_FILE.exists():
-        backup = BACKUP_DIR / f'Dữ liệu {datetime.now():%Y-%m-%d %Hh%Mm%Ss}.xlsx'
+        stamp = f'Dữ liệu {datetime.now():%Y-%m-%d %Hh%Mm%Ss}'
+        backup, i = BACKUP_DIR / f'{stamp}.xlsx', 1
+        while backup.exists():  # lưu 2 lần trong cùng 1 giây: không ghi đè bản sao lưu trước
+            backup, i = BACKUP_DIR / f'{stamp} ({i}).xlsx', i + 1
         shutil.copy2(DATA_FILE, backup)
     try:
         os.replace(tmp, DATA_FILE)
@@ -677,9 +682,15 @@ def run_excel_job(job):
     OUT_DIR.mkdir(exist_ok=True)
     job_file = OUT_DIR / '_job.json'
     job_file.write_text(json.dumps(job, ensure_ascii=False), encoding='utf-8')
-    res = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-                          '-File', str(ROOT / 'dien_mau_excel.ps1'), str(job_file)], capture_output=True)
-    job_file.unlink(missing_ok=True)
+    try:
+        res = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+                              '-File', str(ROOT / 'dien_mau_excel.ps1'), str(job_file)], capture_output=True,
+                             timeout=EXCEL_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f'Excel không phản hồi sau {EXCEL_TIMEOUT // 60} phút (có thể Excel đang hiện hộp thoại). '
+                           'Mở Excel kiểm tra, đóng hộp thoại rồi làm lại.') from None
+    finally:
+        job_file.unlink(missing_ok=True)
     if res.returncode != 0:
         err = res.stderr.decode('utf-8', 'replace')[-400:] or res.stdout.decode('utf-8', 'replace')[-400:]
         raise RuntimeError('Excel không điền được mẫu đơn: ' + err)
@@ -1002,6 +1013,29 @@ class Handler(BaseHTTPRequestHandler):
         elif DATA_FILE.exists() and DATA_FILE.stat().st_mtime != DATA_MTIME[0]:
             Handler.db = load_db()
 
+    def _host_ok(self):
+        """Chỉ phục vụ yêu cầu gửi tới 127.0.0.1 / localhost: chặn trang web lạ dùng tên miền trỏ về máy này
+        (DNS rebinding) để đọc dữ liệu."""
+        host = (self.headers.get('Host') or '').strip().lower()
+        host = host[1:host.index(']')] if host.startswith('[') and ']' in host else host.rsplit(':', 1)[0]
+        if host in ('127.0.0.1', 'localhost', '::1'):
+            return True
+        self._send(403, {'error': 'Yêu cầu không hợp lệ.'})
+        return False
+
+    def _read_json(self, limit=MAX_BODY):
+        """Body JSON của POST. Bắt buộc Content-Type application/json: trang web lạ không gửi được yêu cầu loại này
+        tới công cụ mà không qua kiểm tra CORS của trình duyệt (chống CSRF). Sai -> ValueError."""
+        if not (self.headers.get('Content-Type') or '').startswith('application/json'):
+            raise ValueError('content-type')
+        n = int(self.headers.get('Content-Length') or 0)
+        if n < 0 or n > limit:
+            raise ValueError('size')
+        body = json.loads(self.rfile.read(n) or b'{}')
+        if not isinstance(body, dict):
+            raise ValueError('body')
+        return body
+
     def _license_blocked(self):
         """License không hợp lệ -> trả 403 kèm trạng thái; dữ liệu không bị đọc/ghi."""
         st = LICENSE.check_license()
@@ -1012,10 +1046,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def _activate(self):
         # bắt buộc JSON: trang web lạ không gửi được yêu cầu này mà không qua kiểm tra CORS của trình duyệt
-        if not (self.headers.get('Content-Type') or '').startswith('application/json'):
-            return self._send(415, {'error': 'Yêu cầu không hợp lệ.'})
         try:
-            body = json.loads(self.rfile.read(min(int(self.headers.get('Content-Length') or 0), 8192)) or b'{}')
+            body = self._read_json(limit=8192)
+        except ValueError as e:
+            return self._send(415 if str(e) == 'content-type' else 400, {'error': 'Yêu cầu không hợp lệ.'})
+        try:
             st = LICENSE.activate(str(body.get('code') or ''))
         except licensing.ActivationError as e:
             return self._send(400, {'error': str(e), 'reason': e.reason, 'license': license_info()})
@@ -1025,6 +1060,8 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, {'ok': True, 'license': license_info()})
 
     def do_GET(self):
+        if not self._host_ok():
+            return
         u = urlparse(self.path)
         if u.path == '/api/license':
             return self._send(200, license_info())
@@ -1048,27 +1085,43 @@ class Handler(BaseHTTPRequestHandler):
         ctype = {'.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript'}.get(f.suffix, 'application/octet-stream')
         self._send(200, f.read_bytes(), ctype + '; charset=utf-8')
 
+    @staticmethod
+    def _reload():
+        """Bỏ mọi thay đổi chưa lưu trong bộ nhớ: đọc lại file dữ liệu (nạp lại khi cần nếu đọc lỗi)."""
+        try:
+            Handler.db = load_db() if DATA_FILE.exists() else None
+        except Exception:
+            Handler.db = None
+
     def do_POST(self):
+        if not self._host_ok():
+            return
         u = urlparse(self.path)
         if u.path == '/api/license/activate':
             return self._activate()
         if self._license_blocked():
             return
-        body = json.loads(self.rfile.read(int(self.headers.get('Content-Length') or 0)) or b'{}')
+        try:
+            body = self._read_json()
+        except ValueError as e:
+            return self._send(415 if str(e) == 'content-type' else 400, {'error': 'Yêu cầu không hợp lệ.'})
         try:
             with LOCK:
                 self._fresh()
                 res = handle(Handler.db, u.path, body)
             self._send(200, res)
         except PermissionError:
-            with LOCK:  # lưu không được -> bỏ thay đổi trong bộ nhớ, đọc lại file
-                try:
-                    Handler.db = load_db()
-                except Exception:
-                    pass
+            with LOCK:
+                self._reload()
             self._send(400, {'error': 'File Excel đang mở (file dữ liệu hoặc file xuất) — đóng file trong Excel rồi làm lại.'})
         except (ValueError, RuntimeError, StopIteration, KeyError) as e:
+            with LOCK:  # thao tác bị từ chối: không để lại thay đổi dở dang trong bộ nhớ
+                self._reload()
             self._send(400, {'error': str(e) or 'Dữ liệu không hợp lệ.'})
+        except Exception as e:  # lỗi bất ngờ (file dữ liệu hỏng, đang lưu dở...): vẫn trả lời giao diện
+            with LOCK:
+                self._reload()
+            self._send(500, {'error': f'Lỗi không mong muốn: {e}. Thao tác chưa được lưu; dữ liệu đã đọc lại từ file.'})
 
 
 class Server(ThreadingHTTPServer):
@@ -1119,6 +1172,10 @@ def main():
                     webbrowser.open(url)
                 return
             continue
+    if server is None:
+        print(f'(!) Không mở được cổng {PORT}–{PORT + 19} (đang bị chương trình khác dùng). Đóng bớt chương trình rồi mở lại.')
+        input('Bấm Enter để đóng...')
+        return
     url = f'http://127.0.0.1:{port}/'
     print('Giao diện:', url)
     print('File dữ liệu:', DATA_FILE)
