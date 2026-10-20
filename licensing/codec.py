@@ -85,10 +85,11 @@ class LicenseToken:
     cert: object = None         # chain.AdminCert (mã do ADMIN cấp)
     revocations: object = None  # chain.RevocationList kèm theo mã
     message: bytes = None       # phần được ký (mã NC2)
+    fmt: int = 1                # định dạng mã: 1 = NC1, 2 = NC2 (khác `version` ghi trong payload)
 
     @property
     def raw(self):
-        if self.version != VERSION_V2:
+        if self.fmt != 2:
             return self.payload + self.signature
         return self.message[len(V2_DOMAIN):] + self.signature
 
@@ -107,7 +108,7 @@ class LicenseToken:
 
     @property
     def code(self):
-        if self.version == VERSION_V2:
+        if self.fmt == 2:
             return f'{PREFIX_V2}-' + group(_b32(self.raw))
         return encode_code(self.payload, self.signature)
 
@@ -119,7 +120,7 @@ class LicenseToken:
         """Kiểm chữ ký theo khóa gốc `public_key` (gồm cả giấy chứng nhận và danh sách kèm theo nếu có)."""
         if not public_key:
             return False
-        if self.version != VERSION_V2:
+        if self.fmt != 2:
             return ed25519.verify(public_key, self.payload, self.signature)
         if self.revocations is not None and not self.revocations.verify(public_key):
             return False
@@ -173,7 +174,7 @@ def _decode_v2(s):
     if rest:
         raise bad
     return LicenseToken(version, product, lid, dev, issued, expires, payload, raw[-SIGNATURE_SIZE:], cert, revocations,
-                        V2_DOMAIN + raw[:-SIGNATURE_SIZE])
+                        V2_DOMAIN + raw[:-SIGNATURE_SIZE], fmt=2)
 
 
 def decode_code(text):

@@ -16,7 +16,7 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 
-from . import codec
+from . import chain, codec
 from .codec import CodeFormatError, LICENSE_SECONDS
 from .device import DeviceIdError, get_device_id
 from .storage import LicenseStore, StoreCorrupt
@@ -42,6 +42,8 @@ POLICY_TEXT = '\n'.join([
     '• Quyền riêng tư: Mã thiết bị là giá trị băm một chiều từ định danh cài đặt Windows. Công cụ không thu thập',
     '  tên, tài khoản, nội dung file và không gửi gì qua mạng.',
     '• Thu hồi mã từ phía quản trị viên không có hiệu lực ngay trên máy đang offline; mã vẫn chạy tới khi hết hạn.',
+    '• Mã do quản trị viên đã bị gỡ quyền sẽ hết tác dụng khi máy nhận được thông tin gỡ quyền (qua mã mới',
+    '  hoặc bản cập nhật công cụ).',
 ])
 
 _MESSAGES = {
@@ -56,6 +58,7 @@ _MESSAGES = {
                        'Gửi Mã thiết bị của máy này cho quản trị viên để được cấp mã mới.',
     'no_public_key': 'Bản cài đặt này chưa được cấu hình khóa xác thực license. Liên hệ quản trị viên.',
     'device_error': 'Không xác định được Mã thiết bị của máy này: {detail}',
+    'revoked': 'Mã kích hoạt này không còn hiệu lực. Liên hệ quản trị viên để nhận mã mới.',
 }
 
 
@@ -80,7 +83,7 @@ def format_remaining(seconds):
 
 class ActivationError(Exception):
     """Mã bị từ chối. `reason`: format, signature, product, duration, device, used, expired, not_yet_valid,
-    clock, no_public_key, device_error, storage."""
+    clock, no_public_key, device_error, storage, revoked."""
 
     def __init__(self, reason, message):
         super().__init__(message)
@@ -130,9 +133,17 @@ def _load_public_key(value):
     return key
 
 
+def _load_revocations(value):
+    if value is None:
+        from .thu_hoi import REVOCATION_HEX
+        value = REVOCATION_HEX
+    return chain.revocations_from_hex(value)
+
+
 class LicenseClient:
-    def __init__(self, public_key=None, store=None, device_id=None, clock=None):
+    def __init__(self, public_key=None, store=None, device_id=None, clock=None, revocations_hex=None):
         self.public_key = _load_public_key(public_key)
+        self._file_revocations = _load_revocations(revocations_hex)  # đi kèm bản cài đặt (licensing/thu_hoi.py)
         self.store = store or LicenseStore()
         self._device_id = codec.format_device_id(codec.parse_device_id(device_id)) if device_id else None
         self.clock = clock or time.time
@@ -167,10 +178,23 @@ class LicenseClient:
 
     @staticmethod
     def _check_terms(tok):
-        if tok.version != codec.VERSION or tok.product != codec.PRODUCT_NANGCOM:
+        if tok.version != tok.fmt or tok.product != codec.PRODUCT_NANGCOM:
             raise ActivationError('product', 'Mã kích hoạt không dành cho bộ công cụ Nàng Cơm phiên bản này.')
         if tok.expires_at - tok.issued_at != LICENSE_SECONDS:
             raise ActivationError('duration', 'Mã kích hoạt có thời hạn khác 48 giờ — không được chấp nhận.')
+
+    def known_revocations(self, state=None):
+        """Danh sách gỡ quyền mới nhất máy này biết (bản cài đặt hoặc nhận qua mã đã nhập); None = chưa có."""
+        if state is None:
+            try:
+                state = self.store.load() or {}
+            except StoreCorrupt:
+                state = {}
+        return chain.best(self.public_key, self._file_revocations, chain.revocations_from_hex(state.get('revocations')))
+
+    @staticmethod
+    def _revoked(tok, known):
+        return bool(tok.issuer_id and known and known.contains(tok.issuer_id))
 
     def _high_water(self, state):
         return max(int(state.get('last_seen') or 0), int(self.store.mtime() or 0))
@@ -207,6 +231,8 @@ class LicenseClient:
             return self._status('invalid', now=now)
         if tok.device_id_text != self._device_id:
             return self._status('device_mismatch', tok, now)
+        if self._revoked(tok, self.known_revocations(state)):
+            return self._status('revoked', tok, now)
         high = self._high_water(state)
         if now < high - ROLLBACK_TOLERANCE or now < tok.issued_at - ISSUE_SKEW:
             return self._status('clock_error', tok, now, last_seen=format_time(max(high, tok.issued_at)))
@@ -248,6 +274,14 @@ class LicenseClient:
             except OSError:
                 pass  # không đổi tên được thì ghi đè khi lưu
             state = {}
+        stored = chain.revocations_from_hex(state.get('revocations'))
+        known = chain.best(self.public_key, self._file_revocations, stored, tok.revocations)
+        if known and known is not stored and (stored is None or known.seq > stored.seq):
+            state['revocations'] = known.hex  # nhớ thông tin gỡ quyền (kể cả khi mã này bị từ chối)
+            if self._revoked(tok, known) or state.get('code'):
+                self._save(state)
+        if self._revoked(tok, known):
+            raise ActivationError('revoked', _MESSAGES['revoked'])
         lid = tok.license_id_hex
         used = list(state.get('used') or [])
         if lid in used:
