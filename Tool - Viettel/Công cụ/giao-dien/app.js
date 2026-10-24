@@ -514,16 +514,27 @@ function renderCatalog(el) {
   else if (catTab === 'tinh') catProvinces(body);
   else catCommission(body);
 }
+function prodRowHtml(p) {
+  p = p || { id: '', ten: '', ma_vach: '', dvt: '', quy_cach: 1, gia_von: 0, gia_ban: 0, dang_ban: true };
+  return `<tr data-id="${p.id}"><td><input value="${esc(p.ten)}" data-f="ten" style="min-width:200px"></td>
+    <td><input value="${esc(p.ma_vach)}" data-f="ma_vach" style="width:120px"></td>
+    <td><input value="${esc(p.dvt)}" data-f="dvt" style="width:70px"></td><td class="n"><input type="number" value="${p.quy_cach}" data-f="quy_cach" style="width:60px"></td>
+    <td class="n"><input type="number" value="${p.gia_von}" data-f="gia_von" style="width:100px"></td><td class="n"><input type="number" value="${p.gia_ban}" data-f="gia_ban" style="width:100px"></td>
+    <td class="c"><input type="checkbox" data-f="dang_ban" ${p.dang_ban ? 'checked' : ''}></td>
+    <td class="c"><button class="btn danger sm sp-del" type="button" title="Xóa">×</button></td></tr>`;
+}
 function catProducts(body) {
-  body.innerHTML = `<div class="sub" style="margin-bottom:8px">Sửa giá vốn / giá bán / ĐVT / quy cách rồi bấm Lưu.</div>
-    <div class="tbl-wrap"><table><thead><tr><th>Tên hàng</th><th>ĐVT</th><th class="n">QC</th><th class="n">Giá vốn</th><th class="n">Giá bán</th><th class="c">Bán</th></tr></thead><tbody>
-    ${S.products.filter(p => !p.la_combo).map(p => `<tr data-id="${p.id}"><td>${esc(p.ten)}</td>
-      <td><input value="${esc(p.dvt)}" data-f="dvt" style="width:70px"></td><td class="n"><input type="number" value="${p.quy_cach}" data-f="quy_cach" style="width:60px"></td>
-      <td class="n"><input type="number" value="${p.gia_von}" data-f="gia_von" style="width:100px"></td><td class="n"><input type="number" value="${p.gia_ban}" data-f="gia_ban" style="width:100px"></td>
-      <td class="c"><input type="checkbox" data-f="dang_ban" ${p.dang_ban ? 'checked' : ''}></td></tr>`).join('')}
-    </tbody></table></div><div style="margin-top:12px"><button class="btn" id="save-sp">Lưu sản phẩm</button></div>`;
+  body.innerHTML = `<div class="sub" style="margin-bottom:8px">Thêm / sửa / xóa sản phẩm (tên, mã vạch, ĐVT, quy cách, giá) rồi bấm Lưu. Không xóa được sản phẩm đang dùng trong đơn hoặc combo.</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Tên hàng</th><th>Mã vạch</th><th>ĐVT</th><th class="n">QC</th><th class="n">Giá vốn</th><th class="n">Giá bán</th><th class="c">Bán</th><th class="c"></th></tr></thead><tbody id="sp-tbody">
+    ${S.products.filter(p => !p.la_combo).map(prodRowHtml).join('')}
+    </tbody></table></div>
+    <div style="margin-top:10px"><button class="btn ghost" id="add-sp" type="button">+ Thêm sản phẩm</button>
+      <button class="btn" id="save-sp" style="margin-left:8px">Lưu sản phẩm</button></div>`;
+  $('#add-sp').onclick = () => $('#sp-tbody').insertAdjacentHTML('beforeend', prodRowHtml(null));
+  $('#sp-tbody').onclick = e => { const d = e.target.closest('.sp-del'); if (d) d.closest('tr').remove(); };
   $('#save-sp').onclick = async () => {
-    const products = $$('#cat-body tr[data-id]').map(tr => { const o = { id: tr.dataset.id }; $$('[data-f]', tr).forEach(i => o[i.dataset.f] = i.type === 'checkbox' ? i.checked : i.value); return o; });
+    const products = $$('#sp-tbody tr[data-id]').map(tr => { const o = { id: tr.dataset.id }; $$('[data-f]', tr).forEach(i => o[i.dataset.f] = i.type === 'checkbox' ? i.checked : i.value); return o; })
+      .filter(o => o.id || (o.ten || '').trim());  // bỏ dòng mới để trống
     await run(() => api('/api/catalog/save', { products }), 'Đã lưu sản phẩm.'); refresh();
   };
 }
@@ -536,28 +547,47 @@ function comboRowHtml(prodOpts, sp, qty, withQty) {
 function catCombos(body) {
   const prodOpts = S.products.filter(p => !p.la_combo).map(p => ({ id: p.id, ten: p.ten }));
   const combos = S.products.filter(p => p.la_combo);
-  body.innerHTML = `<div class="sub" style="margin-bottom:8px">Sửa công thức combo (dùng để sửa SP nhập sai như "Bé Sọc Đỏ 60ml" chưa khớp, hoặc phần "chọn 1 trong N"). Bỏ tích "Đang bán" để ẩn combo không dùng (VD Hộp Quà 6 Món giá An Giang). Thành phần sẽ tách ra ở Phiếu Xuất Kho.</div>`
-    + (combos.map(c => { const b = S.combos[c.id] || {}; return `<div class="card" data-cid="${c.id}" style="margin-bottom:10px"><div class="card-h"><b>${esc(c.ten.split('.')[0].slice(0, 72))}</b><label class="small" style="display:flex;gap:5px;align-items:center"><input type="checkbox" class="combo-on" ${c.dang_ban ? 'checked' : ''}>Đang bán</label></div><div class="card-b">
+  const comboCard = (c) => { const b = (c && S.combos[c.id]) || {}; const id = c ? c.id : ''; return `<div class="card" data-cid="${id}" data-new="${c ? '' : '1'}" style="margin-bottom:10px"><div class="card-h">
+      ${c ? `<b>${esc(c.ten)}</b>` : `<input class="combo-ten" placeholder="Tên combo mới…" style="min-width:320px">`}
+      <div style="display:flex;gap:10px;align-items:center">
+        <label class="small" style="display:flex;gap:5px;align-items:center">Giá bán <input type="number" class="combo-gb" value="${c ? c.gia_ban : 0}" style="width:100px"></label>
+        <label class="small" style="display:flex;gap:5px;align-items:center"><input type="checkbox" class="combo-on" ${!c || c.dang_ban ? 'checked' : ''}>Đang bán</label>
+        <button class="btn danger sm combo-del" type="button">Xóa combo</button></div></div><div class="card-b">
       <div class="small muted">Thành phần (× số lượng / 1 combo)</div><div data-sec="components">${(b.components || []).map(x => comboRowHtml(prodOpts, x.sp, x.qty, true)).join('')}</div><button class="btn ghost sm" type="button" data-add="components">+ thành phần</button>
       <div class="small muted" style="margin-top:8px">Chọn 1 trong các món (để trống nếu không có)</div><div data-sec="choice">${(b.choice || []).map(x => comboRowHtml(prodOpts, x.sp, 1, false)).join('')}</div><button class="btn ghost sm" type="button" data-add="choice">+ lựa chọn</button>
       <div class="small muted" style="margin-top:8px">Hàng tặng</div><div data-sec="gift">${(b.gift || []).map(x => comboRowHtml(prodOpts, x.sp, x.qty, true)).join('')}</div><button class="btn ghost sm" type="button" data-add="gift">+ tặng</button>
-    </div></div>`; }).join('') || '<div class="empty">Chưa có combo.</div>')
-    + `<button class="btn" id="save-combo">Lưu combo</button>`;
+    </div></div>`; };
+  body.innerHTML = `<div class="sub" style="margin-bottom:8px">Thêm / sửa / xóa combo. Tạo combo mới: đặt tên + giá bán + thành phần. Bỏ tích "Đang bán" để ẩn combo không dùng. Không xóa được combo đang dùng trong đơn. Thành phần sẽ tách ra ở Phiếu Xuất Kho.</div>`
+    + `<div id="combo-list">` + (combos.map(comboCard).join('') || '') + `</div>`
+    + `<div style="margin-top:4px"><button class="btn ghost" id="add-combo" type="button">+ Thêm combo</button>`
+    + `<button class="btn" id="save-combo" style="margin-left:8px">Lưu combo</button></div>`;
+  $('#add-combo').onclick = () => $('#combo-list').insertAdjacentHTML('beforeend', comboCard(null));
   body.onclick = e => {
     const add = e.target.closest('[data-add]');
     if (add) { add.previousElementSibling.insertAdjacentHTML('beforeend', comboRowHtml(prodOpts, '', 1, add.dataset.add !== 'choice')); return; }
     const del = e.target.closest('.ce-del');
-    if (del) del.closest('.ce-row').remove();
+    if (del) { del.closest('.ce-row').remove(); return; }
+    const cdel = e.target.closest('.combo-del');
+    if (cdel) cdel.closest('[data-cid]').remove();
   };
   $('#save-combo').onclick = async () => {
-    const combos = {}, products = [];
+    const combos = {}, combos_meta = [];
+    let ok = true;
     $$('[data-cid]', body).forEach(card => {
       const get = sec => $$(`[data-sec="${sec}"] .ce-row`, card).map(r => ({ sp: $('.ce-sp', r).value || null, qty: Number($('.ce-qty', r).value) || 1 })).filter(x => x.sp);
       const choice = get('choice');
-      combos[card.dataset.cid] = { components: get('components'), choice: choice.length ? choice.map(x => ({ sp: x.sp })) : null, gift: get('gift') };
-      products.push({ id: card.dataset.cid, dang_ban: $('.combo-on', card).checked });
+      const bom = { components: get('components'), choice: choice.length ? choice.map(x => ({ sp: x.sp })) : null, gift: get('gift') };
+      const isNew = card.dataset.new === '1';
+      const ten = isNew ? ($('.combo-ten', card).value || '').trim() : null;
+      if (isNew && !ten) { ok = false; return; }  // combo mới chưa đặt tên: bỏ qua
+      const meta = { id: card.dataset.cid || '', dang_ban: $('.combo-on', card).checked, gia_ban: Number($('.combo-gb', card).value) || 0 };
+      if (isNew) meta.ten = ten;
+      combos_meta.push(meta);
     });
-    await run(() => api('/api/catalog/save', { combos, products }), 'Đã lưu combo.'); refresh();
+    // id của combo mới do máy chủ sinh; gửi BOM theo id hiện có, BOM combo mới sẽ lưu ở lần làm mới sau
+    $$('[data-cid]', body).forEach(card => { if (card.dataset.cid) { const get = sec => $$(`[data-sec="${sec}"] .ce-row`, card).map(r => ({ sp: $('.ce-sp', r).value || null, qty: Number($('.ce-qty', r).value) || 1 })).filter(x => x.sp); const choice = get('choice'); combos[card.dataset.cid] = { components: get('components'), choice: choice.length ? choice.map(x => ({ sp: x.sp })) : null, gift: get('gift') }; } });
+    if (!ok) { toast('Combo mới cần có tên.', true); return; }
+    await run(() => api('/api/catalog/save', { combos, combos_meta, combos_full: true }), 'Đã lưu combo.'); refresh();
   };
 }
 function catWeights(body) {

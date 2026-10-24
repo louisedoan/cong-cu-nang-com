@@ -1091,8 +1091,67 @@ def handle(db, path, body):
     raise ValueError('Không rõ yêu cầu: ' + path)
 
 
+def _new_pid(db):
+    """Sinh id sản phẩm dạng 'SP%02d' không trùng id nào hiện có."""
+    used = {p['id'] for p in db['products']}
+    i = len(used) + 1
+    while f'SP{i:02d}' in used:
+        i += 1
+    return f'SP{i:02d}'
+
+
+def _catalog_refs(db, pid):
+    """Các chỗ đang dùng sản phẩm/combo `pid` (đơn hàng + BOM combo khác). Rỗng = xóa được."""
+    refs = []
+    for o in db.get('orders', []):
+        if (any(l.get('sp') == pid for l in o.get('lines', [])) or any(h.get('sp') == pid for h in o.get('httm', []))
+                or any(c.get('combo_id') == pid or c.get('choice_sp') == pid for c in o.get('combos', []))):
+            refs.append(f"đơn {o.get('ma') or o.get('id')}")
+    for cid, bom in db.get('combos', {}).items():
+        if cid == pid:
+            continue
+        used = ([x.get('sp') for x in bom.get('components', [])] + [x.get('sp') for x in (bom.get('choice') or [])]
+                + [x.get('sp') for x in bom.get('gift', [])])
+        if pid in used:
+            name = next((p['ten'] for p in db['products'] if p['id'] == cid), cid)
+            refs.append(f"combo {name}")
+    return refs
+
+
+def _delete_products(db, keep_ids):
+    """Xóa product không nằm trong keep_ids; chặn nếu đang được tham chiếu."""
+    for p in list(db['products']):
+        if p['id'] in keep_ids or p['id'] == VOUCHER_ID:
+            continue
+        refs = _catalog_refs(db, p['id'])
+        if refs:
+            raise ValueError(f'Không xóa được "{p["ten"]}" — đang dùng ở: {", ".join(refs)}.')
+        db['products'].remove(p)
+        db['combos'].pop(p['id'], None)
+        db['weights'].pop(p['id'], None)
+
+
+def _apply_product_fields(p, up):
+    if up.get('ten'):
+        p['ten'] = norm(up['ten'])
+    if 'ma_vach' in up:
+        p['ma_vach'] = norm(up['ma_vach'])
+    if 'dvt' in up:
+        p['dvt'] = norm(up['dvt'])
+    if 'quy_cach' in up:
+        p['quy_cach'] = int(num(up['quy_cach'])) or p['quy_cach']
+    if 'gia_von' in up:
+        p['gia_von'] = num(up['gia_von'])
+    if 'gia_ban' in up:
+        p['gia_ban'] = num(up['gia_ban'])
+    if 'ctkm' in up:
+        p['ctkm'] = norm(up['ctkm'])
+    if 'dang_ban' in up:
+        p['dang_ban'] = bool(up['dang_ban'])
+
+
 def _save_catalog(db, body):
-    """Cập nhật danh mục sửa tay từ giao diện (chỉ các phần được gửi lên)."""
+    """Cập nhật danh mục sửa tay từ giao diện. CRUD sản phẩm & combo; chỉ các phần được gửi lên."""
     if 'settings' in body:
         for k in ('cp_pct', 'tinh_pct'):
             if k in body['settings']:
@@ -1102,26 +1161,50 @@ def _save_catalog(db, body):
                 db['settings'][k] = norm(body['settings'][k]) or v
     if 'products' in body:
         cur = {p['id']: p for p in db['products']}
-        for up in body['products']:  # chỉ cập nhật đúng các trường được gửi lên (tránh xóa trắng giá/mã vạch)
+        for up in body['products']:  # thêm id mới, cập nhật id cũ (chỉ các trường gửi lên)
             p = cur.get(up.get('id'))
-            if not p:
-                continue
-            if up.get('ten'):
-                p['ten'] = norm(up['ten'])
-            if 'ma_vach' in up:
-                p['ma_vach'] = norm(up['ma_vach'])
-            if 'dvt' in up:
-                p['dvt'] = norm(up['dvt'])
-            if 'quy_cach' in up:
-                p['quy_cach'] = int(num(up['quy_cach'])) or p['quy_cach']
-            if 'gia_von' in up:
-                p['gia_von'] = num(up['gia_von'])
-            if 'gia_ban' in up:
-                p['gia_ban'] = num(up['gia_ban'])
-            if 'ctkm' in up:
-                p['ctkm'] = norm(up['ctkm'])
-            if 'dang_ban' in up:
-                p['dang_ban'] = bool(up['dang_ban'])
+            if p:
+                _apply_product_fields(p, up)
+            elif up.get('ten'):  # dòng mới (id rỗng/lạ): tạo sản phẩm thường
+                np = {'id': _new_pid(db), 'ma_vach': '', 'ten': '', 'dvt': '', 'quy_cach': 1, 'gia_von': 0.0,
+                      'gia_ban': 0.0, 'ctkm': '', 'la_combo': False, 'dang_ban': True, 'row_mau': None}
+                _apply_product_fields(np, up)
+                db['products'].append(np)
+        keep = {up.get('id') for up in body['products'] if cur.get(up.get('id'))}
+        keep |= {p['id'] for p in db['products'] if p['id'] not in cur}  # vừa tạo
+        keep |= {p['id'] for p in db['products'] if p['la_combo']}  # combo do nhánh combos_meta quản
+        _delete_products(db, keep)
+    if 'combos_meta' in body:
+        cur = {p['id']: p for p in db['products']}
+        keep_combo = set()
+        for meta in body['combos_meta']:
+            p = cur.get(meta.get('id'))
+            if p:
+                if meta.get('ten'):
+                    p['ten'] = norm(meta['ten'])
+                if 'dang_ban' in meta:
+                    p['dang_ban'] = bool(meta['dang_ban'])
+                if 'gia_ban' in meta:
+                    p['gia_ban'] = num(meta['gia_ban'])
+                if 'gia_von' in meta:
+                    p['gia_von'] = num(meta['gia_von'])
+                keep_combo.add(p['id'])
+            elif meta.get('ten'):  # tạo combo mới = product la_combo, ĐVT combo ('Phần') để load_db giữ là combo
+                np = {'id': _new_pid(db), 'ma_vach': norm(meta.get('ma_vach')), 'ten': norm(meta['ten']),
+                      'dvt': norm(meta.get('dvt')) or 'Phần', 'quy_cach': 1, 'gia_von': num(meta.get('gia_von')),
+                      'gia_ban': num(meta.get('gia_ban')), 'ctkm': '', 'la_combo': True, 'dang_ban': True,
+                      'row_mau': None}
+                db['products'].append(np)
+                db['combos'].setdefault(np['id'], {'components': [], 'choice': None, 'gift': []})
+                keep_combo.add(np['id'])
+        if body.get('combos_full'):  # xóa combo vắng mặt (có kiểm tham chiếu)
+            for p in list(db['products']):
+                if p['la_combo'] and p['id'] not in keep_combo:
+                    refs = _catalog_refs(db, p['id'])
+                    if refs:
+                        raise ValueError(f'Không xóa được combo "{p["ten"]}" — đang dùng ở: {", ".join(refs)}.')
+                    db['products'].remove(p)
+                    db['combos'].pop(p['id'], None)
     if 'weights' in body:
         for sp, w in body['weights'].items():
             db['weights'][sp] = {'quy_cach_tt': num(w.get('quy_cach_tt')), 'kg_thung': num(w.get('kg_thung'))}
