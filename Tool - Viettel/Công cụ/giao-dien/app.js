@@ -176,6 +176,7 @@ function renderDashboard(el, kenh) {
   const sum = (arr, k) => arr.reduce((a, o) => a + (o.profit[k] || 0), 0);
   const rev = sum(mset, 'doanh_thu'), prof = sum(mset, 'loi_nhuan'), gv = sum(mset, 'gia_von');
   const sl = sum(mset, 'san_luong');
+  const hhCp = sum(mset, 'tien_cp'), hhTinh = sum(mset, 'tien_tinh');
   const owing = orders.filter(o => o.pay_status !== 'da_tt').reduce((a, o) => a + (o.cong_no_tien || 0), 0);
   el.innerHTML = `
   <div class="kpis">
@@ -183,6 +184,8 @@ function renderDashboard(el, kenh) {
     <div class="kpi ${prof < 0 ? 'bad' : 'ok'}"><div class="l">Lợi nhuận ${monthLabel(month)}</div><div class="v">${fmt(prof)}</div><div class="s">biên ${rev ? (prof / rev * 100).toFixed(1) : 0}%</div></div>
     <div class="kpi"><div class="l">Giá vốn ${monthLabel(month)}</div><div class="v">${fmt(gv)}</div></div>
     <div class="kpi"><div class="l">Sản lượng ${monthLabel(month)}</div><div class="v">${fmt(sl)}</div><div class="s">chai/hũ/phần</div></div>
+    <div class="kpi"><div class="l">HH ${esc(S.settings.ten_hh_cp)} ${monthLabel(month)}</div><div class="v">${fmt(hhCp)}</div></div>
+    <div class="kpi"><div class="l">HH Bưu cục ${monthLabel(month)}</div><div class="v">${fmt(hhTinh)}</div></div>
     <div class="kpi warn"><div class="l">Chưa thu (còn công nợ)</div><div class="v">${fmt(owing)}</div></div>
   </div>
   <div class="card"><div class="card-h"><h2>Doanh thu & lợi nhuận 6 tháng gần nhất</h2></div><div class="card-b">${revenueChart(orders)}</div></div>
@@ -215,12 +218,12 @@ function revenueChart(orders) {
 }
 function provinceTable(kenh, month) {
   const rows = (M.report && M.report.kenh === kenh && M.report.month === month) ? M.report.province : null;
-  return `<table id="prov-tbl"><thead><tr><th>Tỉnh</th><th class="n">Số đơn</th><th class="n">Doanh thu</th><th class="n">Giá vốn</th><th class="n">Lợi nhuận</th><th class="n">Biên</th></tr></thead>
-    <tbody data-prov="${kenh}|${month}">${rows ? provRows(rows) : '<tr><td colspan="6" class="empty">Đang tải…</td></tr>'}</tbody></table>`;
+  return `<table id="prov-tbl"><thead><tr><th>Tỉnh</th><th class="n">Số đơn</th><th class="n">Doanh thu</th><th class="n">Giá vốn</th><th class="n">HH ${esc(S.settings.ten_hh_cp)}</th><th class="n">HH Bưu cục</th><th class="n">Lợi nhuận</th><th class="n">Biên</th></tr></thead>
+    <tbody data-prov="${kenh}|${month}">${rows ? provRows(rows) : '<tr><td colspan="8" class="empty">Đang tải…</td></tr>'}</tbody></table>`;
 }
 function provRows(rows) {
-  if (!rows.length) return '<tr><td colspan="6" class="empty">Chưa có đơn.</td></tr>';
-  return rows.map(r => `<tr><td>${esc(r.tinh)}</td><td class="n">${r.so_don}</td><td class="n">${fmt(r.doanh_thu)}</td><td class="n">${fmt(r.gia_von)}</td>
+  if (!rows.length) return '<tr><td colspan="8" class="empty">Chưa có đơn.</td></tr>';
+  return rows.map(r => `<tr><td>${esc(r.tinh)}</td><td class="n">${r.so_don}</td><td class="n">${fmt(r.doanh_thu)}</td><td class="n">${fmt(r.gia_von)}</td><td class="n">${fmt(r.tien_cp)}</td><td class="n">${fmt(r.tien_tinh)}</td>
     <td class="n" style="color:${r.loi_nhuan < 0 ? 'var(--bad)' : 'inherit'}">${fmt(r.loi_nhuan)}</td><td class="n">${(r.bien_ln * 100).toFixed(1)}%</td></tr>`).join('');
 }
 function monthTable(orders) {
@@ -305,7 +308,7 @@ function renderCombos() {
   }
   body.innerHTML = comboRows.map((r, i) => {
     const line = draft.combos.find(x => x.combo_id === r.c.id && (x.choice_sp || null) === (r.choice_sp || null)) || {};
-    return `<tr><td>${esc(r.c.ten.split('.')[0].slice(0, 60))}</td>
+    return `<tr><td class="combo-name">${esc(r.c.ten)}</td>
       <td>${r.hasChoice ? `<span class="pill info">${esc(r.choiceTen)}</span>` : '<span class="muted small">—</span>'}</td>
       <td class="n">${fmt(r.c.gia_ban)}</td>
       <td class="n"><input type="number" min="0" step="1" class="qty ${line.phan ? 'has' : ''}" data-ci="${i}" value="${line.phan || ''}" style="width:90px"></td></tr>`;
@@ -407,15 +410,15 @@ function renderOrders(el, kenh) {
     <select id="o-month"><option value="">Mọi tháng</option>${months.map(m => `<option value="${m}" ${f.month === m ? 'selected' : ''}>Tháng ${monthLabel(m)}</option>`).join('')}</select>
     <input id="o-q" class="grow" placeholder="Tìm khách hàng hoặc mã đơn…" value="${esc(f.q)}">
     <a class="btn" href="#${kenh}/len-don">+ Lên đơn mới</a></div></div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Mã đơn</th><th>Ngày</th><th>Khách</th><th>Tỉnh</th><th class="n">Doanh thu</th><th class="n">Lợi nhuận</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Mã đơn</th><th>Ngày</th><th>Khách</th><th>Tỉnh</th><th class="n">Doanh thu</th><th class="n">HH ${esc(S.settings.ten_hh_cp)}</th><th class="n">HH Bưu cục</th><th class="n">Lợi nhuận</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>
   ${rows.length ? rows.map(o => `<tr><td class="nowrap"><b>${esc(o.ma)}</b></td><td>${fd(o.ngay_dat)}</td><td>${esc(o.khach)}</td><td class="small">${esc(o.tinh)}</td>
-    <td class="n">${fmt(o.profit.doanh_thu)}</td><td class="n" style="color:${o.profit.loi_nhuan < 0 ? 'var(--bad)' : 'inherit'}">${fmt(o.profit.loi_nhuan)}</td>
+    <td class="n">${fmt(o.profit.doanh_thu)}</td><td class="n">${fmt(o.profit.tien_cp)}</td><td class="n">${fmt(o.profit.tien_tinh)}</td><td class="n" style="color:${o.profit.loi_nhuan < 0 ? 'var(--bad)' : 'inherit'}">${fmt(o.profit.loi_nhuan)}</td>
     <td><span class="pill ${ST_CLS[o.trang_thai]}">${S.status[o.trang_thai]}</span><br><span class="pill ${o.pay_status === 'da_tt' ? 'ok' : 'warn'}" style="margin-top:3px">${S.pay_status[o.pay_status] || ''}</span></td>
     <td><div class="actions">
       <button class="btn ghost sm" data-view="${o.id}">Xem</button>
       ${o.trang_thai !== 'huy' ? `<button class="btn ghost sm" data-status="${o.id}">Trạng thái</button><button class="btn sm" data-deliver="${o.id}">Giao hàng</button><button class="btn ghost sm" data-export="${o.id}">Xuất file</button>` : ''}
       ${o.trang_thai === 'da_len_don' ? `<button class="btn ghost sm" data-edit="${o.id}">Sửa</button><button class="btn danger sm" data-cancel="${o.id}">Hủy</button>` : ''}
-    </div></td></tr>`).join('') : '<tr><td colspan="8" class="empty">Không có đơn nào.</td></tr>'}
+    </div></td></tr>`).join('') : '<tr><td colspan="10" class="empty">Không có đơn nào.</td></tr>'}
   </tbody></table></div></div>`;
   $('#o-tinh').onchange = e => { f.tinh = e.target.value; renderOrders(el, kenh); };
   $('#o-month').onchange = e => { f.month = e.target.value; renderOrders(el, kenh); };
@@ -452,7 +455,7 @@ function viewOrder(id) {
     ${o.ghi_chu ? `<div class="alert warn">${esc(o.ghi_chu)}</div>` : ''}
     <h4>Hàng đặt</h4>
     <div class="tbl-wrap"><table><thead><tr><th>Mặt hàng</th><th class="n">SL</th><th class="n">Thành tiền</th></tr></thead><tbody>
-      ${o.combos.map(c => { const p = M.prod[c.combo_id]; const ch = c.choice_sp ? ` <span class="pill info">${esc(M.prod[c.choice_sp]?.ten.split(' ').slice(0, 3).join(' '))}</span>` : ''; return `<tr><td>${esc(p?.ten.split('.')[0].slice(0, 60))}${ch}</td><td class="n">${fmt(c.phan)} phần</td><td class="n">${fmt(c.phan * (p?.gia_ban || 0))}</td></tr>`; }).join('')}
+      ${o.combos.map(c => { const p = M.prod[c.combo_id]; const ch = c.choice_sp ? ` <span class="pill info">${esc(M.prod[c.choice_sp]?.ten.split(' ').slice(0, 3).join(' '))}</span>` : ''; return `<tr><td>${esc(p?.ten || '')}${ch}</td><td class="n">${fmt(c.phan)} phần</td><td class="n">${fmt(c.phan * (p?.gia_ban || 0))}</td></tr>`; }).join('')}
       ${o.lines.map(l => { const p = M.prod[l.sp]; return `<tr><td>${esc(p?.ten)}</td><td class="n">${fmt(l.thung * (p?.quy_cach || 1))} chai</td><td class="n">${fmt(l.thung * (l.gia_chai || p?.gia_ban || 0) * (p?.quy_cach || 1))}</td></tr>`; }).join('')}
     </tbody></table></div>
     <div class="sum-row"><span>Doanh thu (giá niêm yết)</span><b>${fmt(o.profit.doanh_thu)}</b></div>

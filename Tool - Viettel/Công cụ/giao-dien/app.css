@@ -194,3 +194,5 @@ details.remind:not([open]) > summary { border-bottom: 0; }
 textarea.lic-code { width: 100%; font: 13px/1.5 Consolas, "Courier New", monospace; resize: vertical; word-break: break-all; }
 .lic-policy summary { cursor: pointer; color: var(--brand-2); font-size: 13px; font-weight: 600; }
 .lic-policy pre { white-space: pre-wrap; font: 12.5px/1.55 var(--font); background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 8px 0 0; }
+
+.combo-name { white-space: normal; min-width: 260px; max-width: 460px; }
