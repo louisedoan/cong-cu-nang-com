@@ -63,7 +63,7 @@ async function load() {
   return true;
 }
 
-// ---------- license (offline 48 giờ) ----------
+// ---------- license (offline 20 ngày) ----------
 let LIC = null;
 async function checkLicense() {
   LIC = await (await fetch('/api/license', { cache: 'no-store' })).json();
@@ -123,7 +123,7 @@ function licenseInfo() {
       <div><span class="muted">Còn lại</span><br><b>${esc(l.remaining_text)}</b></div>
       <div><span class="muted">Phát hành</span><br><b>${esc(l.issued_text)}</b></div><div><span class="muted">Hết hạn</span><br><b>${esc(l.expires_text)}</b></div>
       <div><span class="muted">License ID</span><br><code>${esc(l.license_id)}</code></div></div>
-    <div class="alert warn small">48 giờ tính từ lúc quản trị viên phát hành mã. Khi hết hạn, công cụ khóa các chức năng cho tới khi nhập mã mới; dữ liệu giữ nguyên.</div>
+    <div class="alert warn small">20 ngày tính từ lúc quản trị viên phát hành mã. Khi hết hạn, công cụ khóa các chức năng cho tới khi nhập mã mới; dữ liệu giữ nguyên.</div>
     <b>Nhập mã mới</b> <span class="small muted">(khi quản trị viên đã cấp mã cho chu kỳ tiếp theo)</span>
     ${licenseForm(l)}${policyBlock(l)}`,
     `<button class="btn ghost" data-close2>Đóng</button><button class="btn" id="lic-activate">Kích hoạt mã mới</button>`);

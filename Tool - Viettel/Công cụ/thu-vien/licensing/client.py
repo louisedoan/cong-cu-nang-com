@@ -7,7 +7,7 @@ API nội bộ:
     client.remaining_time()    -> timedelta | None
     @client.require            -> bọc hàm cần license (chưa hợp lệ -> LicenseRequired)
 
-Mô hình (xem IMPLEMENTATION_DECISIONS.md): mã do quản trị viên ký sẵn, gắn Device ID, hiệu lực đúng 48 giờ
+Mô hình (xem IMPLEMENTATION_DECISIONS.md): mã do quản trị viên ký sẵn, gắn Device ID, hiệu lực 20 ngày
 kể từ THỜI ĐIỂM PHÁT HÀNH. Module này không đọc, ghi hay xóa dữ liệu nghiệp vụ nào.
 """
 import functools
@@ -31,9 +31,9 @@ POLICY_TEXT = '\n'.join([
     'CHÍNH SÁCH LICENSE OFFLINE – CÔNG CỤ NÀNG CƠM',
     '',
     '• Mỗi mã kích hoạt do quản trị viên cấp cho ĐÚNG MỘT máy (theo Mã thiết bị) và chỉ dùng MỘT lần.',
-    '• Mã có hiệu lực đúng 48 giờ liên tục, tính từ LÚC QUẢN TRỊ VIÊN PHÁT HÀNH MÃ (không phải lúc nhập mã).',
+    '• Mã có hiệu lực 20 ngày liên tục, tính từ LÚC QUẢN TRỊ VIÊN PHÁT HÀNH MÃ (không phải lúc nhập mã).',
     '  Hãy nhập mã ngay khi nhận được.',
-    '• Trong 48 giờ đó công cụ chạy hoàn toàn offline; đóng/mở lại không cần nhập lại mã.',
+    '• Trong 20 ngày đó công cụ chạy hoàn toàn offline; đóng/mở lại không cần nhập lại mã.',
     '• Hết hạn: các chức năng của công cụ bị khóa cho tới khi nhập mã mới. Dữ liệu, cấu hình, file báo cáo',
     '  và sao lưu được GIỮ NGUYÊN — license không đọc, sửa hay xóa dữ liệu của bạn.',
     '• Không gia hạn mã cũ. Nhập lại mã đã dùng sẽ bị từ chối.',
@@ -77,7 +77,10 @@ def format_remaining(seconds):
     seconds = max(0, int(seconds))
     if seconds < 60:
         return 'dưới 1 phút' if seconds else '0 phút'
-    h, m = divmod(seconds // 60, 60)
+    d, rem = divmod(seconds // 60, 1440)
+    h, m = divmod(rem, 60)
+    if d:
+        return f'{d} ngày {h:02d} giờ'
     return f'{h} giờ {m:02d} phút' if h else f'{m} phút'
 
 
@@ -181,7 +184,7 @@ class LicenseClient:
         if tok.version != tok.fmt or tok.product != codec.PRODUCT_NANGCOM:
             raise ActivationError('product', 'Mã kích hoạt không dành cho bộ công cụ Nàng Cơm phiên bản này.')
         if tok.expires_at - tok.issued_at != LICENSE_SECONDS:
-            raise ActivationError('duration', 'Mã kích hoạt có thời hạn khác 48 giờ — không được chấp nhận.')
+            raise ActivationError('duration', 'Mã kích hoạt có thời hạn khác 20 ngày — không được chấp nhận.')
 
     def known_revocations(self, state=None):
         """Danh sách gỡ quyền mới nhất máy này biết (bản cài đặt hoặc nhận qua mã đã nhập); None = chưa có."""
@@ -293,7 +296,7 @@ class LicenseClient:
                                           'liên hệ quản trị viên để nhận mã mới.')
         if now >= tok.expires_at:
             self._log(state, now, lid, 'tu-choi:expired')
-            raise ActivationError('expired', f'Mã đã hết hạn lúc {format_time(tok.expires_at)} (48 giờ kể từ khi phát '
+            raise ActivationError('expired', f'Mã đã hết hạn lúc {format_time(tok.expires_at)} (20 ngày kể từ khi phát '
                                              f'hành {format_time(tok.issued_at)}). Liên hệ quản trị viên để nhận mã mới.')
         if now < tok.issued_at - ISSUE_SKEW:
             raise ActivationError('not_yet_valid', f'Đồng hồ máy đang sớm hơn thời điểm phát hành mã '

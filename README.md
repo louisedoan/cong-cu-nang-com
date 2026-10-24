@@ -34,7 +34,7 @@ Mỗi máy cần **mã kích hoạt** do quản trị viên cấp. Không cần 
 
 Quy tắc:
 - Mỗi mã chỉ dùng **một lần**, cho **đúng máy** có Mã thiết bị đó.
-- Hiệu lực **48 giờ tính từ lúc quản trị viên tạo mã** (không phải lúc nhập) → nhập ngay khi nhận được.
+- Hiệu lực **20 ngày tính từ lúc quản trị viên tạo mã** (không phải lúc nhập) → nhập ngay khi nhận được.
 - Hết hạn: công cụ khóa chức năng cho tới khi nhập mã mới. **Dữ liệu, báo cáo, sao lưu giữ nguyên.**
 - Giữ đồng hồ Windows đúng giờ (bật *Đặt giờ tự động*). Lùi đồng hồ sẽ làm license bị khóa.
 - Cài lại Windows / đổi máy làm Mã thiết bị thay đổi → gửi Mã thiết bị mới để được cấp lại.
@@ -54,7 +54,7 @@ python -m licensing policy          # chính sách license offline
 | *Bản cài đặt này chưa được cấu hình khóa xác thực* | Bản công cụ cũ — `git pull` bản mới |
 | *Mã kích hoạt không hợp lệ* | Dán thiếu/sai mã — sao chép lại nguyên mã |
 | *Mã này được cấp cho thiết bị khác* | Gửi đúng Mã thiết bị (ghi trong thông báo) cho quản trị viên |
-| *Mã đã hết hạn* | Mã tạo quá 48 giờ trước — xin mã mới và nhập ngay |
+| *Mã đã hết hạn* | Mã tạo quá 20 ngày trước — xin mã mới và nhập ngay |
 | *Đồng hồ máy đang sớm hơn… / Đồng hồ Windows đang lùi…* | Bật *Đặt giờ tự động* trong Windows rồi mở lại; vẫn lỗi thì liên hệ quản trị viên |
 | *License đã lưu không thuộc máy này* | Cài lại Windows / đổi máy — xin cấp lại |
 

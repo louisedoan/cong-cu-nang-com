@@ -34,7 +34,7 @@ from openpyxl import Workbook, load_workbook  # noqa: E402
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side  # noqa: E402
 from openpyxl.utils import get_column_letter  # noqa: E402
 
-import licensing  # noqa: E402  (cấp phép offline 48 giờ — bản sao trong thu-vien, xem README)
+import licensing  # noqa: E402  (cấp phép offline 20 ngày — bản sao trong thu-vien, xem README)
 
 DATA_DIR = ROOT / 'Dữ liệu'
 DATA_FILE = DATA_DIR / 'Dữ liệu Viettel.xlsx'

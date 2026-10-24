@@ -1,4 +1,4 @@
-"""Cấp phép (license) offline 48 giờ cho bộ công cụ Nàng Cơm.
+"""Cấp phép (license) offline 20 ngày cho bộ công cụ Nàng Cơm.
 
 Bản chuẩn nằm ở <repo>/licensing; mỗi công cụ có một bản sao trong thư mục "thu-vien" của nó
 (đồng bộ bằng "python -m license_admin sync" trong repo quản trị riêng). Đừng sửa trực tiếp bản trong "thu-vien".

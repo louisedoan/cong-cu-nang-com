@@ -47,8 +47,8 @@ LƯU Ý
 LICENSE (CẤP PHÉP) — BẮT BUỘC
 - Lần đầu dùng, hoặc khi license hết hạn, giao diện hiện màn hình "Kích hoạt license" kèm "Mã thiết bị".
   Bấm "Sao chép" Mã thiết bị, gửi cho quản trị viên -> nhận mã bắt đầu bằng NC1- hoặc NC2- -> dán vào ô -> "Kích hoạt".
-- Mỗi mã chỉ dùng MỘT lần, cho ĐÚNG máy này, hiệu lực 48 giờ TÍNH TỪ LÚC QUẢN TRỊ VIÊN TẠO MÃ
-  (không phải lúc nhập) -> nhập ngay khi nhận được. Đóng/mở lại công cụ trong 48 giờ không phải nhập lại.
+- Mỗi mã chỉ dùng MỘT lần, cho ĐÚNG máy này, hiệu lực 20 ngày TÍNH TỪ LÚC QUẢN TRỊ VIÊN TẠO MÃ
+  (không phải lúc nhập) -> nhập ngay khi nhận được. Đóng/mở lại công cụ trong 20 ngày không phải nhập lại.
 - Góc dưới bên trái hiện "License còn ... giờ ... phút" (chuyển màu cam khi còn dưới 6 giờ). Bấm vào để xem
   chi tiết, chính sách offline, hoặc nhập trước mã của chu kỳ tiếp theo.
 - Hết hạn: công cụ khóa các chức năng cho tới khi nhập mã mới. File "Dữ liệu\...xlsx", sao lưu và file đã xuất
