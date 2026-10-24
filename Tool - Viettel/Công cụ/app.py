@@ -917,46 +917,193 @@ def _report_head(ws, cols):
     ws.freeze_panes = 'A2'
 
 
-def export_report(db, kenh):
-    """Xuất báo cáo Excel 1 kênh: chi tiết theo đơn, tổng hợp theo tỉnh, theo tháng."""
-    OUT_DIR.mkdir(exist_ok=True)
-    wb = Workbook()
-    wb.remove(wb.active)
-    numf = '#,##0;-#,##0;"-"'
-    ws = wb.create_sheet('Chi tiết đơn')
-    hh_cp = 'HH ' + (db['settings'].get('ten_hh_cp') or TEXT_SETTINGS['ten_hh_cp'])
-    _report_head(ws, ['Mã đơn', 'Ngày', 'Tỉnh', 'Khách', 'Doanh thu', 'Giá vốn', 'Chiết khấu', hh_cp,
-                      'HH Tỉnh', 'Phí VC', 'Chi phí khác', 'Lợi nhuận', 'Biên LN', 'Trạng thái'])
-    r = 2
+REPORT_TEMPLATES = {'buu_cuc': ROOT.parent / 'BÁO CÁO VIETTEL BƯU CỤC.xlsx',
+                    'tm': ROOT.parent / 'BÁO CÁO VIETTEL TM.xlsx'}
+
+
+def _norm_hdr(v):
+    return re.sub(r'\s+', ' ', str(v or '')).strip().lower()
+
+
+def _header_map(ws, needed, max_scan=8):
+    """Tìm dòng tiêu đề + vị trí cột theo TÊN (khớp chứa chuỗi). needed: {key: [chuỗi con ưu tiên]}.
+    Trả (header_row, {key: col}). Thiếu bất kỳ key -> RuntimeError."""
+    for r in range(1, max_scan + 1):
+        cells = {c: _norm_hdr(ws.cell(r, c).value) for c in range(1, ws.max_column + 1)}
+        pos = {}
+        for key, subs in needed.items():
+            for sub in subs:
+                col = next((c for c, t in cells.items() if t and sub in t and c not in pos.values()), None)
+                if col:
+                    pos[key] = col
+                    break
+        if all(k in pos for k in needed):
+            return r, pos
+    missing = [k for k in needed if True]
+    raise RuntimeError(f'File mẫu "{ws.title}" thiếu cột tiêu đề cần thiết ({", ".join(missing)}).')
+
+
+def _report_detail_rows(db, kenh):
+    """Mỗi dòng SP/combo của mọi đơn (khớp order_profit: combo = 1 dòng theo giá combo)."""
+    prods = _prod_map(db)
+    s = db['settings']
+    cp_pct, tinh_pct = num(s.get('cp_pct')), num(s.get('tinh_pct'))
+    rows = []
     for o in _active_orders(db, kenh):
-        pr = order_profit(db, o)
-        vals = [o.get('ma'), to_date(o.get('ngay_dat')), o.get('tinh'), o.get('khach'), pr['doanh_thu'], pr['gia_von'],
-                pr['chiet_khau'], pr['tien_cp'], pr['tien_tinh'], pr['phi_vc'], pr['chi_phi_khac'], pr['loi_nhuan'],
-                pr['bien_ln'], STATUS.get(o.get('trang_thai'), '')]
-        for i, v in enumerate(vals, 1):
-            c = ws.cell(r, i, v)
-            c.number_format = 'dd/mm/yyyy' if i == 2 else '0.##%' if i == 13 else numf if i >= 5 else 'General'
+        first = True
+        items = []
+        for ln in o.get('lines', []):
+            p = prods.get(ln.get('sp'))
+            q = num(ln.get('thung'))
+            if p and q > 0:
+                sl = q * p['quy_cach']
+                items.append((p, sl, p['gia_ban'], p['gia_von']))
+        for cb in o.get('combos', []):
+            p, phan = prods.get(cb.get('combo_id')), num(cb.get('phan'))
+            if p and phan > 0:
+                items.append((p, phan, p['gia_ban'], p['gia_von']))
+        for p, sl, don_gia, gv in items:
+            doanh_thu = sl * don_gia
+            rows.append({'ngay': to_date(o.get('ngay_dat')), 'ma': o.get('ma'), 'tinh': o.get('tinh'),
+                         'kho': o.get('khach'), 'pay': PAY_STATUS.get(o.get('pay_status'), ''),
+                         'ma_sp': p.get('ma_vach') or p['id'], 'ten': p['ten'], 'sl': sl, 'don_gia': don_gia,
+                         'gia_von_sp': gv, 'tong_gv': sl * gv, 'doanh_thu': doanh_thu, 'phi_vc': num(o.get('phi_vc')) if first else 0,
+                         'pct_cp': cp_pct, 'tien_cp': doanh_thu * cp_pct, 'pct_tinh': tinh_pct, 'tien_tinh': doanh_thu * tinh_pct})
+            first = False
+    return rows
+
+
+def _write_rows(ws, header_row, pos, data, numkeys):
+    """Ghi các dòng `data` (list dict) bắt đầu ngay dưới header; sao style từ dòng dữ liệu mẫu; xóa công thức/dòng thừa."""
+    from copy import copy
+    maxcol = ws.max_column
+    style_row = header_row + 1
+    has_sample = ws.max_row > header_row
+    styles = {c: copy(ws.cell(style_row, c)._style) for c in pos.values()} if has_sample else {}
+    fmts = {c: ws.cell(style_row, c).number_format for c in pos.values()} if has_sample else {}
+    r = header_row + 1
+    for item in data:
+        for col in range(1, maxcol + 1):  # mọi cột ngoài dữ liệu: xóa công thức mẫu (giữ style)
+            if col not in pos.values():
+                ws.cell(r, col).value = None
+        for key, col in pos.items():
+            cell = ws.cell(r, col)
+            cell.value = item.get(key)  # gán .value để xóa được công thức cũ khi giá trị là None
+            if col in styles:
+                cell._style = copy(styles[col])
+                cell.number_format = fmts[col]
         r += 1
-    for sheet, rows, keycol in (('Tổng Hợp Doanh Số', report_by_province(db, kenh), 'tinh'),
-                                ('Theo Dõi Doanh Số Tháng', report_by_month(db, kenh), 'thang')):
-        ws = wb.create_sheet(sheet)
-        head = [('Tỉnh' if keycol == 'tinh' else 'Tháng'), 'Số đơn', 'Doanh thu', 'Giá vốn', 'Chiết khấu',
-                hh_cp, 'HH Tỉnh', 'Lợi nhuận', 'Biên LN']
-        _report_head(ws, head)
-        r = 2
-        for g in rows:
-            label = g.get(keycol)
-            if keycol == 'thang':
-                label = f'{label[5:7]}/{label[:4]}' if label else ''
-            vals = [label, g['so_don'], g['doanh_thu'], g['gia_von'], g['chiet_khau'], g['tien_cp'], g['tien_tinh'],
-                    g['loi_nhuan'], g['bien_ln']]
-            for i, v in enumerate(vals, 1):
-                c = ws.cell(r, i, v)
-                c.number_format = '0.##%' if i == 9 else numf if i >= 3 else 'General'
-            r += 1
+    if ws.max_row >= r:  # xóa dòng mẫu/công thức cũ còn thừa bên dưới
+        ws.delete_rows(r, ws.max_row - r + 1)
+
+
+def fill_report_template(db, kenh):
+    """Điền dữ liệu đã tính vào bản sao file mẫu (giữ bố cục/định dạng, ghi THẲNG giá trị — khớp order_profit)."""
+    tpl = REPORT_TEMPLATES.get(kenh)
+    if not tpl or not Path(tpl).exists():
+        raise RuntimeError(f'Không tìm thấy file mẫu báo cáo: {tpl}')
+    OUT_DIR.mkdir(exist_ok=True)
     out = OUT_DIR / f'Báo cáo Viettel {CHANNELS.get(kenh, "tất cả kênh")} (cập nhật {datetime.now():%d.%m.%Y %Hh%M}).xlsx'
+    shutil.copyfile(tpl, out)
+    wb = load_workbook(out)
+    s = db['settings']
+    hh_name = s.get('ten_hh_cp') or TEXT_SETTINGS['ten_hh_cp']
+
+    # 1) Chi tiết đơn ("Đơn Hàng Từng Tỉnh")
+    det = _sheet(wb, 'Đơn Hàng Từng Tỉnh')
+    need = {'ngay': ['ngày'], 'ma': ['mã đơn'], 'tinh': ['tỉnh'], 'kho': ['kho'], 'ma_sp': ['mã sp'],
+            'ten': ['tên sản phẩm'], 'sl': ['số lượng'], 'don_gia': ['đơn giá'], 'gia_von_sp': ['giá vốn (sp)', 'giá vốn'],
+            'tong_gv': ['tổng giá vốn'], 'doanh_thu': ['doanh thu'], 'phi_vc': ['phí vận chuyển'],
+            'pct_cp': ['% ' + hh_name.lower(), '% chị', '%'], 'tien_cp': ['tiền ' + hh_name.lower(), 'tiền chị']}
+    hr, pos = _header_map(det, need)
+    if _norm_hdr_has(det, hr, 'trạng thái'):
+        pos['pay'] = _col_with(det, hr, 'trạng thái')
+    # cột hoa hồng tỉnh nếu mẫu có
+    if _norm_hdr_has(det, hr, 'của tỉnh') or _norm_hdr_has(det, hr, 'của bưu cục'):
+        c = _col_with(det, hr, 'tiền của tỉnh')
+        if c:
+            pos['tien_tinh'] = c
+        c2 = _col_with(det, hr, '% của')
+        if c2:
+            pos['pct_tinh'] = c2
+    _write_rows(det, hr, pos, _report_detail_rows(db, kenh), ())
+
+    # 2) Tổng Hợp Doanh Số (theo tỉnh) — sinh lại từ report_by_province
+    th = _sheet(wb, 'Tổng Hợp Doanh Số')
+    needp = {'tinh': ['tỉnh'], 'doanh_thu': ['doanh số'], 'san_luong': ['sản lượng'], 'gia_von': ['giá vốn'],
+             'phi_vc': ['phí vận chuyển'], 'pct_cp': ['% chị', '%'], 'tien_cp': ['tiền chị', 'tiền ' + hh_name.lower()],
+             'pct_tinh': ['% của'], 'tien_tinh': ['tiền của tỉnh'], 'tong_cp': ['tổng chi phí'],
+             'loi_nhuan': ['lợi nhuận'], 'bien': ['biên']}
+    hrp, posp = _header_map(th, needp)
+    if _norm_hdr_has(th, hrp, 'stt'):
+        posp['stt'] = _col_with(th, hrp, 'stt')
+    prov = report_by_province(db, kenh)
+    cp_pct, tinh_pct = num(s.get('cp_pct')), num(s.get('tinh_pct'))
+    prows, tot = [], {'doanh_thu': 0, 'san_luong': 0, 'gia_von': 0, 'phi_vc': 0, 'tien_cp': 0, 'tien_tinh': 0,
+                      'tong_cp': 0, 'loi_nhuan': 0}
+    for i, g in enumerate(prov, 1):
+        tong_cp = g['gia_von'] + g['chiet_khau'] + g['tien_cp'] + g['tien_tinh'] + g['phi_vc'] + g['chi_phi_khac']
+        row = {'stt': i, 'tinh': g['tinh'], 'doanh_thu': g['doanh_thu'], 'san_luong': g['san_luong'],
+               'gia_von': g['gia_von'], 'phi_vc': g['phi_vc'], 'pct_cp': cp_pct, 'tien_cp': g['tien_cp'],
+               'pct_tinh': tinh_pct, 'tien_tinh': g['tien_tinh'], 'tong_cp': tong_cp, 'loi_nhuan': g['loi_nhuan'],
+               'bien': g['bien_ln']}
+        prows.append(row)
+        for k in tot:
+            tot[k] += row.get(k, 0)
+    prows.append({'tinh': 'TỔNG CỘNG', 'bien': (tot['loi_nhuan'] / tot['doanh_thu']) if tot['doanh_thu'] else 0, **tot})
+    _write_rows(th, hrp, posp, prows, ())
+
+    # 3) Theo Dõi Doanh Số Tháng — sinh lại từ report_by_month
+    mo = _sheet(wb, 'Theo Dõi Doanh Số Tháng')
+    needm = {'thang': ['tháng'], 'doanh_thu': ['doanh số'], 'loi_nhuan': ['lợi nhuận'], 'bien': ['biên']}
+    hrm, posm = _header_map(mo, needm)
+    mrows, dt, ln = [], 0, 0
+    for g in report_by_month(db, kenh):
+        lbl = g['thang']
+        mrows.append({'thang': f'Tháng {lbl[5:7]}/{lbl[:4]}' if lbl else '', 'doanh_thu': g['doanh_thu'],
+                      'loi_nhuan': g['loi_nhuan'], 'bien': g['bien_ln']})
+        dt += g['doanh_thu']
+        ln += g['loi_nhuan']
+    mrows.append({'thang': 'TỔNG CỘNG', 'doanh_thu': dt, 'loi_nhuan': ln, 'bien': (ln / dt) if dt else 0})
+    _write_rows(mo, hrm, posm, mrows, ())
+
+    # 4) Danh Mục Thiết Lập — ghi lại bảng SP (tham khảo)
+    _fill_catalog_sheet(wb, db)
+
     wb.save(out)
+    wb.close()
     return str(out)
+
+
+def _norm_hdr_has(ws, row, sub):
+    return any(sub in _norm_hdr(ws.cell(row, c).value) for c in range(1, ws.max_column + 1))
+
+
+def _col_with(ws, row, sub):
+    return next((c for c in range(1, ws.max_column + 1) if sub in _norm_hdr(ws.cell(row, c).value)), None)
+
+
+def _fill_catalog_sheet(wb, db):
+    try:
+        ws = _sheet(wb, 'Danh Mục Thiết Lập')
+    except RuntimeError:
+        return
+    need = {'stt': ['stt'], 'ma': ['mã sản phẩm'], 'ten': ['tên sản phẩm'], 'qc': ['quy cách'],
+            'gv': ['giá vốn'], 'gb': ['giá bán'], 'ctkm': ['khuyến mã', 'khuyến mại']}
+    try:
+        hr, pos = _header_map(ws, need)
+    except RuntimeError:
+        return
+    from copy import copy
+    style_row = hr + 1
+    styles = {c: copy(ws.cell(style_row, c)._style) for c in pos.values()}
+    r = hr + 1
+    for i, p in enumerate([p for p in db['products'] if p['id'] != VOUCHER_ID], 1):
+        for key, val in (('stt', i), ('ma', p.get('ma_vach')), ('ten', p['ten']), ('qc', p.get('quy_cach')),
+                         ('gv', p.get('gia_von')), ('gb', p.get('gia_ban')), ('ctkm', p.get('ctkm'))):
+            cell = ws.cell(r, pos[key], val)
+            cell._style = copy(styles[pos[key]])
+        r += 1
 
 
 # =====================================================================
@@ -1078,7 +1225,9 @@ def handle(db, path, body):
         kenh = valid_channel(body.get('kenh'))
         return {'province': report_by_province(db, kenh, body.get('month')), 'month': report_by_month(db, kenh)}
     if path == '/api/report/export':
-        return {'file': export_report(db, valid_channel(body.get('kenh')))}
+        if body.get('tong'):  # báo cáo tổng: xuất cả 2 kênh theo mẫu
+            return {'files': [fill_report_template(db, k) for k in CHANNELS]}
+        return {'file': fill_report_template(db, valid_channel(body.get('kenh')))}
     if path == '/api/catalog/save':
         _save_catalog(db, body)
         save_db(db)

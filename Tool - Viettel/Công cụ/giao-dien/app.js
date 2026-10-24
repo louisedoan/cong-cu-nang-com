@@ -193,10 +193,17 @@ function renderDashboard(el, kenh) {
     <div class="card"><div class="card-h"><h2>Theo tỉnh (${monthLabel(month)})</h2></div><div class="tbl-wrap">${provinceTable(kenh, month)}</div></div>
     <div class="card"><div class="card-h"><h2>Theo tháng</h2></div><div class="tbl-wrap">${monthTable(orders)}</div></div>
   </div>
-  <div class="card"><div class="card-b"><button class="btn ghost" id="btn-report">Xuất báo cáo Excel (${S.channels[kenh]})</button></div></div>`;
+  <div class="card"><div class="card-b" style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn ghost" id="btn-report">Xuất báo cáo (${S.channels[kenh]})</button>
+    <button class="btn" id="btn-report-all">Xuất báo cáo tổng (cả 2 kênh)</button></div></div>`;
   $('#btn-report').onclick = async () => {
     const t = toast('Đang dựng báo cáo Excel…');
     try { const r = await api('/api/report/export', { kenh }); t.remove(); toast(`Đã xuất báo cáo. ${openFileLink(r.file, 'Mở file')}`, false, true); }
+    catch (e) { t.remove(); toast(e.message, true); }
+  };
+  $('#btn-report-all').onclick = async () => {
+    const t = toast('Đang dựng báo cáo tổng (2 file theo mẫu)…');
+    try { const r = await api('/api/report/export', { tong: true }); t.remove(); toast(`Đã xuất ${r.files.length} báo cáo. ${r.files.map(f => openFileLink(f, 'Mở')).join(' · ')}`, false, true); }
     catch (e) { t.remove(); toast(e.message, true); }
   };
   loadReport(kenh, month);
