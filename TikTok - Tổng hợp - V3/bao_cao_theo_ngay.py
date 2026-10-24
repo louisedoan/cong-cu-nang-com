@@ -24,7 +24,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.hyperlink import Hyperlink
 
-import licensing  # cấp phép offline 48 giờ (bản sao trong thu-vien)
+import licensing  # cấp phép offline 20 ngày (bản sao trong thu-vien)
 
 CUTOFF_HOUR = 14  # giờ chốt đơn mỗi ngày
 CANCELLED = {'Đã hủy', 'Cancelled'}

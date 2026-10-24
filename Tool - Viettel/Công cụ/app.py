@@ -962,13 +962,18 @@ def _report_detail_rows(db, kenh):
             p, phan = prods.get(cb.get('combo_id')), num(cb.get('phan'))
             if p and phan > 0:
                 items.append((p, phan, p['gia_ban'], p['gia_von']))
+        pr = order_profit(db, o)
         for p, sl, don_gia, gv in items:
             doanh_thu = sl * don_gia
             rows.append({'ngay': to_date(o.get('ngay_dat')), 'ma': o.get('ma'), 'tinh': o.get('tinh'),
                          'kho': o.get('khach'), 'pay': PAY_STATUS.get(o.get('pay_status'), ''),
+                         'order_status': STATUS.get(o.get('trang_thai'), ''),
                          'ma_sp': p.get('ma_vach') or p['id'], 'ten': p['ten'], 'sl': sl, 'don_gia': don_gia,
-                         'gia_von_sp': gv, 'tong_gv': sl * gv, 'doanh_thu': doanh_thu, 'phi_vc': num(o.get('phi_vc')) if first else 0,
-                         'pct_cp': cp_pct, 'tien_cp': doanh_thu * cp_pct, 'pct_tinh': tinh_pct, 'tien_tinh': doanh_thu * tinh_pct})
+                         'gia_von_sp': gv, 'tong_gv': sl * gv, 'doanh_thu': doanh_thu,
+                         'pct_cp': cp_pct, 'tien_cp': doanh_thu * cp_pct, 'pct_tinh': tinh_pct, 'tien_tinh': doanh_thu * tinh_pct,
+                         # khoản theo cả đơn: ghi ở dòng đầu để tổng cột đúng, dòng sau để trống
+                         'phi_vc': pr['phi_vc'] if first else None, 'chi_phi_khac': pr['chi_phi_khac'] if first else None,
+                         'loi_nhuan': pr['loi_nhuan'] if first else None, 'bien': pr['bien_ln'] if first else None})
             first = False
     return rows
 
@@ -1016,16 +1021,12 @@ def fill_report_template(db, kenh):
             'tong_gv': ['tổng giá vốn'], 'doanh_thu': ['doanh thu'], 'phi_vc': ['phí vận chuyển'],
             'pct_cp': ['% ' + hh_name.lower(), '% chị', '%'], 'tien_cp': ['tiền ' + hh_name.lower(), 'tiền chị']}
     hr, pos = _header_map(det, need)
-    if _norm_hdr_has(det, hr, 'trạng thái'):
-        pos['pay'] = _col_with(det, hr, 'trạng thái')
-    # cột hoa hồng tỉnh nếu mẫu có
-    if _norm_hdr_has(det, hr, 'của tỉnh') or _norm_hdr_has(det, hr, 'của bưu cục'):
-        c = _col_with(det, hr, 'tiền của tỉnh')
-        if c:
-            pos['tien_tinh'] = c
-        c2 = _col_with(det, hr, '% của')
-        if c2:
-            pos['pct_tinh'] = c2
+    for key, sub in (('pay', 'thanh toán'), ('order_status', 'trạng thái đơn'), ('tien_tinh', 'tiền của tỉnh'),
+                     ('pct_tinh', '% của'), ('chi_phi_khac', 'chi phí khác'), ('loi_nhuan', 'lợi nhuận'),
+                     ('bien', 'biên')):  # các cột mẫu có thì điền thêm (bưu cục/TM khác nhau)
+        c = _col_with(det, hr, sub)
+        if c and c not in pos.values():
+            pos[key] = c
     _write_rows(det, hr, pos, _report_detail_rows(db, kenh), ())
 
     # 2) Tổng Hợp Doanh Số (theo tỉnh) — sinh lại từ report_by_province
@@ -1097,13 +1098,28 @@ def _fill_catalog_sheet(wb, db):
     from copy import copy
     style_row = hr + 1
     styles = {c: copy(ws.cell(style_row, c)._style) for c in pos.values()}
+    prods = [p for p in db['products'] if p['id'] != VOUCHER_ID]
+    last = ws.max_row
     r = hr + 1
-    for i, p in enumerate([p for p in db['products'] if p['id'] != VOUCHER_ID], 1):
+    for i, p in enumerate(prods, 1):
         for key, val in (('stt', i), ('ma', p.get('ma_vach')), ('ten', p['ten']), ('qc', p.get('quy_cach')),
                          ('gv', p.get('gia_von')), ('gb', p.get('gia_ban')), ('ctkm', p.get('ctkm'))):
-            cell = ws.cell(r, pos[key], val)
+            cell = ws.cell(r, pos[key])
+            cell.value = val
             cell._style = copy(styles[pos[key]])
         r += 1
+    for rr in range(r, last + 1):  # xóa ô sản phẩm mẫu thừa (chỉ cột SP, giữ bảng hoa hồng bên phải)
+        for c in pos.values():
+            ws.cell(rr, c).value = None
+    # bảng hoa hồng (cột "Đối tượng nhận hoa hồng" / "Tỷ lệ hoa hồng (%)") — ghi 2 dòng
+    doi = _col_with(ws, hr, 'đối tượng')
+    tyle = _col_with(ws, hr, 'tỷ lệ')
+    if doi and tyle:
+        s = db['settings']
+        for i, (ten, rate) in enumerate(((s.get('ten_hh_cp') or TEXT_SETTINGS['ten_hh_cp'], num(s.get('cp_pct'))),
+                                         ('Bưu cục / Tỉnh', num(s.get('tinh_pct'))))):
+            ws.cell(hr + 1 + i, doi).value = ten
+            ws.cell(hr + 1 + i, tyle).value = rate
 
 
 # =====================================================================

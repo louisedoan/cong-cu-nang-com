@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT / 'thu-vien'))
 
 from openpyxl import Workbook, load_workbook
 
-import licensing  # cấp phép offline 48 giờ (bản sao trong thu-vien)
+import licensing  # cấp phép offline 20 ngày (bản sao trong thu-vien)
 import ton_kho
 from dinh_dang_bao_cao import apply_reference_styles, detail_sheet, grouped_sheet, overview_sheet
 
