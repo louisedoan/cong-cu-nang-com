@@ -8,6 +8,7 @@
 | `TikTok - Tổng hợp - V3` | Số lượng TikTok theo ngày (chốt 14h) | `Tao-bao-cao.bat` |
 | `Tool - Viettel/Công cụ` | Quản lý kênh Viettel (Bưu cục + Thương Mại): lên đơn, phiếu xuất kho, lợi nhuận (web cục bộ) | `Mo-cong-cu.bat` |
 | `Tool-Shopee` | Báo cáo bán hàng Shopee theo mặt hàng | kéo file vào `Tao-bao-cao.bat` |
+| `phieu-xuat-kho` | Đọc đơn đặt hàng PDF (ZMART) hàng loạt → phiếu xuất kho theo mẫu, đối chiếu bảng chào giá | `Tao-phieu-xuat-kho.bat` |
 
 Hướng dẫn nghiệp vụ từng công cụ nằm trong `HUONG-DAN.txt` của thư mục đó.
 

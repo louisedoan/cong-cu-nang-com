@@ -259,11 +259,226 @@ def build_rows(order, quote, weights):
     return rows, issues
 
 
+# =====================================================================
+# số phiếu: PXK/KHO-PQ<mmyy>/<n>, đếm lại từ 1 mỗi tháng; nhớ ở file "mmyy n" (sửa tay được)
+# =====================================================================
+COUNTER_FILE = ROOT / 'so-phieu-pxk.txt'
+KHO_CODE, KHO_XUAT, XUAT_TAI = 'KHO-PQ', 'KHO-PQ', 'KHO PHÚ QUỐC'
+
+
+def next_number(path, ngay):
+    try:
+        mmyy, n = Path(path).read_text('utf-8').split()[:2]
+        if mmyy == f'{ngay:%m%y}':
+            return int(n) + 1
+    except (OSError, ValueError):
+        pass
+    return 1
+
+
+def save_number(path, ngay, n):
+    Path(path).write_text(f'{ngay:%m%y} {n}\n', encoding='utf-8')
+
+
+# =====================================================================
+# điền phiếu xuất kho (bản sao mẫu; dựng lại khối TỔNG/VAT/chữ ký theo số dòng)
+# =====================================================================
+# Vị trí theo mẫu "PHIEU XUAT KHO": tiêu đề dòng 13, dòng hàng 14.. (mẫu 3 dòng), TỔNG 17, VAT 18–20, chữ ký 23.
+_FIRST, _ORIG_N, _ORIG_TONG, _NCOL = 14, 3, 17, 13
+
+
+def _safe(s):
+    return re.sub(r'[\\/:*?"<>|]+', '_', str(s or '')).strip() or 'X'
+
+
+def _short_store(sieu_thi):
+    return re.sub(r'(?i)^siêu thị\s*', '', sieu_thi or '').strip() or 'KH'
+
+
+def pxk_name(order, n, ngay):
+    h = order['header']
+    return f'{ngay:%d.%m}-PXK{n}-{_safe(_short_store(h.get("sieu_thi")))}-{_safe(h.get("ma_don"))}.xlsx'
+
+
+def fill_pxk(order, rows, template, out_dir, n, ngay):
+    """Điền 1 đơn vào bản sao mẫu PXK. Trả đường dẫn file. Không sửa file mẫu."""
+    import shutil
+    from copy import copy
+    from openpyxl.utils import get_column_letter as col
+    template = Path(template)
+    if not template.exists():
+        raise RuntimeError(f'Không tìm thấy mẫu phiếu xuất kho: {template}')
+    if not rows:
+        raise RuntimeError('Đơn không có dòng hàng.')
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    out = Path(out_dir) / pxk_name(order, n, ngay)
+    shutil.copyfile(template, out)
+    wb = load_workbook(out)
+    if PXK_SHEET not in wb.sheetnames:
+        wb.close()
+        raise RuntimeError(f'File mẫu thiếu sheet "{PXK_SHEET}".')
+    ws = wb[PXK_SHEET]
+    N, delta = len(rows), len(rows) - _ORIG_N
+    max_row = ws.max_row
+    data_style = {c: copy(ws.cell(_FIRST, c)._style) for c in range(1, _NCOL + 1)}
+    data_height = ws.row_dimensions[_FIRST].height
+    tail = [(r, c, ws.cell(r, c).value, copy(ws.cell(r, c)._style), ws.row_dimensions[r].height)
+            for r in range(_ORIG_TONG, max_row + 1) for c in range(1, _NCOL + 1)]
+    merges = [(m.min_col, m.min_row, m.max_col, m.max_row) for m in ws.merged_cells.ranges]
+    for m in list(ws.merged_cells.ranges):          # gỡ ô gộp từ dòng 14 trở xuống (dựng lại theo vị trí mới)
+        if m.min_row >= _FIRST:
+            ws.unmerge_cells(str(m))
+    for r in range(_FIRST, max_row + max(delta, 0) + 1):
+        for c in range(1, _NCOL + 1):
+            ws.cell(r, c).value = None
+    for r, c, val, style, height in tail:            # khối TỔNG/VAT/chữ ký dời theo số dòng (giữ chữ + định dạng)
+        cell = ws.cell(r + delta, c)
+        cell.value, cell._style = val, style
+        if c == 1:
+            ws.row_dimensions[r + delta].height = height
+    for i, r in enumerate(rows):                     # dòng hàng
+        rr = _FIRST + i
+        vals = {1: i + 1, 2: KHO_XUAT, 4: r['barcode'], 5: r['ten'], 6: r['dvt'], 7: r['quy_cach'],
+                8: r['so_thung'], 9: f'=H{rr}*G{rr}', 10: r['don_gia_1pcs'], 11: f'=J{rr}*G{rr}',
+                12: f'=H{rr}*K{rr}', 13: r['ghi_chu'] or None}
+        ws.row_dimensions[rr].height = data_height  # dòng hàng cao đều như dòng mẫu
+        for c in range(1, _NCOL + 1):
+            cell = ws.cell(rr, c)
+            cell.value, cell._style = vals.get(c), copy(data_style[c])
+        if r['so_thung'] != int(r['so_thung']):
+            ws.cell(rr, 8).number_format = 'General'  # số thùng lẻ: hiện đủ (vd 1.5)
+    last, t = _FIRST + N - 1, _FIRST + N
+    ws.cell(t, 8).value = f'=SUM(H14:H{last})'
+    ws.cell(t, 9).value = f'=SUM(I14:I{last})'
+    ws.cell(t + 1, 13).value = f'=SUM(L14:L{last})'
+    ws.cell(t + 2, 12).value = 0.08
+    ws.cell(t + 2, 13).value = f'=M{t + 1}*L{t + 2}'
+    ws.cell(t + 3, 13).value = f'=SUM(M{t + 1}:M{t + 2})'
+    for c1, r1, c2, r2 in merges:
+        if r1 >= _FIRST:
+            ws.merge_cells(f'{col(c1)}{r1 + delta}:{col(c2)}{r2 + delta}')
+    h = order['header']
+    kg = sum(r['kg'] for r in rows)
+    ws['A5'] = f'Ngày   {ngay:%d}  tháng   {ngay:%m}  năm {ngay:%Y}'
+    ws['A7'] = f'Đơn vị nhận hàng: {h.get("cong_ty", "")}' + (f' - MST: {h["mst"]}' if h.get('mst') else '')
+    ws['A8'] = f'Người nhận hàng: {h.get("sieu_thi", "")}'
+    ws['A9'] = f'Địa chỉ nhận hàng: {h.get("dia_chi", "")}'
+    ws['A10'] = 'Lý do xuất: Xuất kho bán hàng'
+    ws['A11'] = f'Xuất tại: {XUAT_TAI}'
+    ws['I1'] = f'{h.get("ma_don", "")}\nSố: PXK/{KHO_CODE}{ngay:%m%y}/{n}'
+    ws['I9'] = f'Đơn hàng(PO) số:{h.get("ma_don", "")}'
+    ws['L11'] = f'Khối lượng:  {round(kg, 1):g} Kg'
+    wb.save(out)
+    wb.close()
+    return out
+
+
+# =====================================================================
+# file tổng hợp đối chiếu
+# =====================================================================
+
+def write_summary(results, out_dir, ngay):
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Tổng hợp'
+    head = ['Siêu thị', 'Mã đơn', 'File đơn', 'Trạng thái', 'Số dòng', 'Tổng tiền đơn (đã VAT)', 'Khối lượng (Kg)',
+            'Lệch giá', 'Chưa có trong bảng giá', 'Chưa có tải trọng', 'File PXK']
+    ws.append(head)
+    for r in results:
+        iss = r.get('issues', [])
+        cnt = lambda k: sum(1 for i in iss if i['loai'] == k)  # noqa: E731
+        h = r.get('header') or {}
+        ws.append([h.get('sieu_thi'), h.get('ma_don'), r['file'], r['status'], r.get('n_lines'), r.get('tong_don'),
+                   round(r.get('kg') or 0, 1), cnt('Lệch giá'), cnt('Không có trong bảng chào giá'),
+                   cnt('Chưa có tải trọng'), Path(r['pxk']).name if r.get('pxk') else ''])
+    ws2 = wb.create_sheet('Chi tiết cần kiểm')
+    ws2.append(['Siêu thị', 'Mã đơn', 'Mã vạch', 'Loại', 'Chi tiết'])
+    for r in results:
+        for i in r.get('issues', []):
+            ws2.append([i.get('sieu_thi'), i.get('ma_don'), i.get('barcode'), i['loai'], i['chi_tiet']])
+    for sh in (ws, ws2):
+        for c in sh[1]:
+            c.font = Font(bold=True, color='FFFFFF')
+            c.fill = PatternFill('solid', fgColor='1F4E78')
+            c.alignment = Alignment(wrap_text=True, vertical='center')
+        for i, w in enumerate([18, 14, 22, 30, 9, 18, 14, 9, 14, 14, 40][:sh.max_column], 1):
+            sh.column_dimensions[chr(64 + i)].width = w
+    for row in ws.iter_rows(min_row=2, min_col=6, max_col=6):
+        for c in row:
+            c.number_format = '#,##0'
+    out = Path(out_dir) / f'Tong hop doi chieu {ngay:%d.%m.%Y %Hh%M}.xlsx'
+    wb.save(out)
+    return out
+
+
+def run(folder, ngay=None, counter=None):
+    """Chạy cả loạt cho thư mục: mỗi đơn PDF -> 1 PXK (đơn đã có PXK thì bỏ qua), rồi file tổng hợp.
+    Trả (results, summary_path). Thiếu bảng giá / mẫu -> RuntimeError."""
+    from datetime import datetime
+    folder = Path(folder)
+    ngay = ngay or datetime.now()
+    counter = Path(counter) if counter else folder / COUNTER_FILE.name
+    out_dir = folder / OUT_NAME
+    inp = find_inputs(folder)
+    quote, weights = load_quote(inp['quote']), load_weights(inp['weights'])
+    results = []
+    for pdf in inp['orders']:
+        res = {'file': pdf.name, 'header': {}, 'issues': [], 'pxk': None, 'n_lines': 0, 'tong_don': 0, 'kg': 0}
+        results.append(res)
+        try:
+            order = parse_order(pdf)
+        except Exception as e:  # PDF lỗi / mẫu đơn chưa hỗ trợ
+            res['status'] = f'Không tạo PXK: {e}'
+            continue
+        h = res['header'] = order['header']
+        rows, issues = build_rows(order, quote, weights)
+        res.update(n_lines=len(rows), issues=issues, kg=sum(r['kg'] for r in rows),
+                   tong_don=(order.get('tong') or {}).get('gia_tri') or sum(r['thanh_tien'] for r in rows))
+        warn = check_order(order)
+        if warn:
+            res['status'] = 'Không tạo PXK: ' + ' '.join(warn)
+            res['issues'] = issues + [{'ma_don': h.get('ma_don'), 'sieu_thi': h.get('sieu_thi'), 'barcode': '',
+                                       'loai': 'Đọc đơn', 'chi_tiet': w} for w in warn]
+            continue
+        da_co = sorted(out_dir.glob(f'*-{_safe(h.get("ma_don"))}.xlsx')) if out_dir.exists() else []
+        if da_co:
+            res.update(status='Bỏ qua: đã có phiếu xuất kho của đơn này', pxk=str(da_co[0]))
+            continue
+        n = next_number(counter, ngay)
+        try:
+            res['pxk'] = str(fill_pxk(order, rows, inp['template'], out_dir, n, ngay))
+        except PermissionError:
+            res['status'] = 'Không tạo PXK: file đang mở trong Excel — đóng file rồi chạy lại.'
+            continue
+        save_number(counter, ngay, n)
+        res['status'] = 'Đã tạo PXK'
+    return results, write_summary(results, out_dir, ngay)
+
+
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     if not licensing.ensure_licensed('Phiếu xuất kho'):
         return
-    find_inputs(ROOT)
+    print('Đang đọc các đơn đặt hàng PDF trong thư mục...')
+    try:
+        results, summary = run(ROOT)
+    except RuntimeError as e:
+        print('(!)', e)
+        return
+    if not results:
+        print('(!) Không có file đơn PDF nào trong thư mục công cụ.')
+    for r in results:
+        h = r['header']
+        print(f'\n• {r["file"]} — {h.get("sieu_thi", "")} {h.get("ma_don", "")}: {r["status"]}')
+        if r.get('pxk'):
+            print(f'  {r["n_lines"]} dòng · {r["tong_don"]:,.0f}đ · {r["kg"]:,.1f} Kg → {Path(r["pxk"]).name}')
+        for i in r['issues']:
+            print(f'  (!) {i["loai"]}: {i["barcode"]} {i["chi_tiet"]}')
+    print(f'\nTổng hợp đối chiếu: {summary}')
+    print(f'Phiếu xuất kho nằm trong thư mục "{OUT_NAME}". Kiểm các dòng có ghi chú trước khi in.')
 
 
 if __name__ == '__main__':
