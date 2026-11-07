@@ -21,6 +21,7 @@ VAT = 1.08          # giá trên đơn ZMART đã gồm VAT 8%; cột đơn giá
 PXK_SHEET = 'PHIEU XUAT KHO'
 # Vị trí theo mẫu "PHIEU XUAT KHO": tiêu đề dòng 13, dòng hàng 14.. (mẫu 3 dòng), TỔNG 17, VAT 18–20, chữ ký 23.
 _FIRST, _ORIG_N, _ORIG_TONG, _NCOL = 14, 3, 17, 13
+_TEN_1_DONG = 36  # số ký tự tên sản phẩm vừa 1 dòng ô "Tên sản phẩm" của mẫu (chữ in hoa)
 
 
 def only_digits(s):
@@ -173,6 +174,7 @@ def load_weights(path):
 # Dòng hàng: "<mã vạch><ĐVT> <SL> <đơn giá> <thuế> <thành tiền>" — khi thuế >= 100.000, pypdf dính "thuế+thành tiền"
 # (vd "412,8005,572,800") nên thành tiền tính = SL × đơn giá rồi kiểm phần đuôi.
 _LINE = re.compile(r'(893\d{9,10})\s*([A-ZÀ-ỸĐ]{2,5})\s+(\d+)\s+([\d,]+)\s+([\d,\s]+)$')
+_STT = re.compile(r'^\d{1,3} \d{6}\b\s*(.*)$')  # đầu mỗi dòng hàng: "<STT> <SKU> <phần đầu tên>"
 
 
 def pdf_text(path):
@@ -203,15 +205,22 @@ def parse_text(text):
               'ma_don': (re.search(r'Mã đơn nhập:\s*(\S+)', text) or [None, ''])[1],
               'ngay': (re.search(r'Ngày tạo:\s*([\d\-/]+)', text) or [None, ''])[1]}
     lines, canh_bao = [], []
+    ten = None  # tên sản phẩm: chữ từ sau "STT SKU" tới trước mã vạch (có thể trải nhiều dòng)
     for l in L:
+        m_stt = _STT.match(l)
+        if m_stt:
+            ten, l = [], m_stt.group(1)
         m = _LINE.search(l)
+        if ten is not None:
+            ten.append(l[:m.start()] if m else l)
         if not m:
             continue
         bc, dvt, sl, gia, tail = m.group(1), m.group(2), int(m.group(3)), _money(m.group(4)), m.group(5)
+        name, ten = _norm(' '.join(ten or [])), None
         tt = sl * gia
         if not tail.replace(' ', '').endswith(f'{tt:,}'):
             canh_bao.append(f'Dòng {bc}: thành tiền trên đơn không bằng SL × đơn giá ({tt:,}) — kiểm tay.')
-        lines.append({'barcode': bc, 'dvt': dvt, 'sl': sl, 'gia': gia, 'thanh_tien': tt})
+        lines.append({'barcode': bc, 'dvt': dvt, 'sl': sl, 'gia': gia, 'thanh_tien': tt, 'ten': name})
     # 5 số tổng (SL, tổng tiền hàng, chiết khấu, thuế, giá trị đơn) đứng liền nhau, nhãn nằm cuối trang
     tong = {}
     for i in range(len(L) - 4):
@@ -273,13 +282,13 @@ def build_rows(order, quote, weights):
         bc, notes = ln['barcode'], []
         q, w = quote.get(bc), weights.get(bc)
         if q:
-            ten, dvt, quy_cach = q['ten'], q['dvt'] or ln['dvt'], q['quy_cach']
+            ten, dvt, quy_cach = ln.get('ten') or q['ten'], ln['dvt'] or q['dvt'], q['quy_cach']
             if abs(ln['gia'] - q['gia']) > 0.5:
                 txt = f'Giá đơn {ln["gia"]:,.0f} ≠ báo giá {q["gia"]:,.0f}'
                 notes.append(txt)
                 issue(bc, 'Lệch giá', txt)
         else:
-            ten, dvt, quy_cach = f'Mã {bc}', ln['dvt'], (w['quy_cach'] if w else 1)
+            ten, dvt, quy_cach = ln.get('ten') or f'Mã {bc}', ln['dvt'], (w['quy_cach'] if w else 1)
             notes.append('Không có trong bảng chào giá')
             issue(bc, 'Không có trong bảng chào giá', f'SL {ln["sl"]}, giá đơn {ln["gia"]:,.0f}')
         if w:
@@ -397,15 +406,21 @@ def _fill_sheet(ws, order, rows, n, ngay):
         cell.value, cell._style = val, style
         if c == 1:
             ws.row_dimensions[r + delta].height = height
+    # tên theo PO thường dài hơn ô mẫu (~36 ký tự/dòng): có tên dài thì mọi dòng hàng cao đủ 2 dòng chữ (vẫn đều nhau)
+    if any(len(str(r['ten'] or '')) > _TEN_1_DONG for r in rows):
+        data_height = max(data_height or 15, 34.5)
     for i, r in enumerate(rows):                     # dòng hàng
         rr = _FIRST + i
         vals = {1: i + 1, 2: KHO_XUAT, 4: r['barcode'], 5: r['ten'], 6: r['dvt'], 7: r['quy_cach'],
                 8: r['so_thung'], 9: f'=H{rr}*G{rr}', 10: r['don_gia_1pcs'], 11: f'=J{rr}*G{rr}',
                 12: f'=H{rr}*K{rr}', 13: r['ghi_chu'] or None}
-        ws.row_dimensions[rr].height = data_height  # dòng hàng cao đều như dòng mẫu
+        ws.row_dimensions[rr].height = data_height  # dòng hàng cao đều nhau
         for c in range(1, _NCOL + 1):
             cell = ws.cell(rr, c)
             cell.value, cell._style = vals.get(c), copy(data_style[c])
+        al = copy(ws.cell(rr, 5).alignment)          # tên dài tự xuống dòng, không bị cắt khi in
+        al.wrap_text, al.vertical = True, 'center'
+        ws.cell(rr, 5).alignment = al
         if r['so_thung'] != int(r['so_thung']):
             ws.cell(rr, 8).number_format = 'General'  # số thùng lẻ: hiện đủ (vd 1.5)
     last, t = _FIRST + N - 1, _FIRST + N

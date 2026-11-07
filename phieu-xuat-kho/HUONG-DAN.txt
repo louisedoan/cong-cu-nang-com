@@ -51,7 +51,8 @@ KẾT QUẢ (trong thư mục "Phiếu xuất kho")
    - Lý do xuất: Xuất kho bán hàng.  Xuất tại: KHO PHÚ QUỐC.  Đơn hàng (PO) số: mã đơn.
    - Khối lượng: tổng kg của cả phiếu (làm tròn 1 số lẻ).
    Bảng hàng (mỗi dòng đơn = 1 dòng phiếu, KHÔNG bỏ dòng nào, giữ thứ tự như trên đơn):
-   - Kho xuất: KHO-PQ.  Mã vạch, Tên sản phẩm, ĐVT, Quy cách: theo bảng chào giá.
+   - Kho xuất: KHO-PQ.  Mã vạch, Tên sản phẩm, ĐVT: GIỐNG HỆT PO (đơn PDF).  Quy cách: theo bảng chào giá.
+   - Tên dài tự xuống dòng trong ô (không bị cắt khi in).
    - Số xuất (thùng) = số lượng trên đơn ÷ quy cách. Không chẵn thùng thì hiện số lẻ (VD 1.5).
    - Đơn giá (1pcs) = giá trên đơn ÷ 1,08 (giá đơn ZMART đã gồm VAT 8%; phiếu ghi giá chưa VAT rồi cộng VAT ở dưới).
    - Tổng đơn vị, Đơn giá thùng, Thành tiền: công thức Excel như mẫu.
@@ -75,8 +76,8 @@ CÁCH TÍNH
 CẢNH BÁO VÀ CÁCH XỬ LÝ
 Phiếu VẪN được lập, chỉ cần kiểm:
 - "Lệch giá" (Giá đơn X ≠ báo giá Y): phiếu giữ giá trên đơn. Kiểm với phòng kinh doanh xem giá nào đúng.
-- "Không có trong bảng chào giá": mã vạch trên đơn không có trong bảng giá -> dòng vẫn lên phiếu với tên "Mã <mã vạch>",
-  ĐVT theo đơn, quy cách theo danh mục (không có thì 1). Sửa tên trên phiếu hoặc bổ sung mã vào bảng giá rồi lập lại.
+- "Không có trong bảng chào giá": mã vạch trên đơn không có trong bảng giá -> dòng vẫn lên phiếu (tên, ĐVT
+  theo PO), quy cách theo danh mục (không có thì 1) -> kiểm quy cách / số thùng, hoặc bổ sung mã vào bảng giá rồi lập lại.
 - "Chưa có tải trọng": mã chưa có tải trọng trong danh mục -> tính 0 kg. Bổ sung vào DANH MỤC HH KÊNH MT rồi lập lại
   Xem mã vạch cần bổ sung ở sheet "Chi tiết cần kiểm" của file tổng hợp.
 
