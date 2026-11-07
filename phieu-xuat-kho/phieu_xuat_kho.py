@@ -19,6 +19,8 @@ OUT_NAME = 'Phiếu xuất kho'
 OUT_DIR = ROOT / OUT_NAME
 VAT = 1.08          # giá trên đơn ZMART đã gồm VAT 8%; cột đơn giá PXK là chưa VAT
 PXK_SHEET = 'PHIEU XUAT KHO'
+# Vị trí theo mẫu "PHIEU XUAT KHO": tiêu đề dòng 13, dòng hàng 14.. (mẫu 3 dòng), TỔNG 17, VAT 18–20, chữ ký 23.
+_FIRST, _ORIG_N, _ORIG_TONG, _NCOL = 14, 3, 17, 13
 
 
 def only_digits(s):
@@ -54,37 +56,64 @@ def _money(s):
 # file đầu vào
 # =====================================================================
 
-def _sheet_names(path):
+def _pxk_sheet(wb):
+    """Tên sheet phiếu xuất kho trong workbook (không phân biệt hoa thường) hoặc None."""
+    return next((n for n in wb.sheetnames if _key(n) == _key(PXK_SHEET)), None)
+
+
+def _layout_ok(ws):
+    """Đúng bố cục mẫu: tiêu đề bảng ở dòng 13 (STT), dòng TỔNG ở dòng 17 (mẫu 3 dòng hàng).
+    PXK đã lập (số dòng khác 3) không đạt -> không bị dùng nhầm làm mẫu."""
+    return 'stt' in _key(ws.cell(_FIRST - 1, 1).value) and _key(ws.cell(_ORIG_TONG, 1).value).startswith('tổng')
+
+
+def _inspect(path):
+    """(tên các sheet đã chuẩn hóa, mẫu PXK đúng bố cục?: True/False, None nếu không có sheet PXK)."""
     try:
         wb = load_workbook(path, read_only=True)
-        names = list(wb.sheetnames)
-        wb.close()
-        return names
     except Exception:
-        return []
+        return [], None
+    try:
+        sh = _pxk_sheet(wb)
+        return [_key(n) for n in wb.sheetnames], (_layout_ok(wb[sh]) if sh else None)
+    finally:
+        wb.close()
 
 
 def find_inputs(folder):
     """Tìm trong `folder` (không xét thư mục con): đơn *.pdf, bảng chào giá (sheet 'báo giá'), mẫu PXK (sheet
-    'PHIEU XUAT KHO'), danh mục tải trọng (tên có 'DANH MỤC'). Thiếu bảng giá / mẫu -> RuntimeError."""
+    'PHIEU XUAT KHO' đúng bố cục mẫu), danh mục tải trọng (tên có 'DANH MỤC').
+    Thiếu bảng giá / mẫu, hoặc có hơn 1 bảng giá / mẫu -> RuntimeError (nêu tên file để người dùng chọn)."""
     folder = Path(folder)
     orders = sorted(p for p in folder.iterdir() if p.is_file() and p.suffix.lower() == '.pdf')
-    quote = template = weights = None
+    quotes, templates, wrong_layout, weights = [], [], [], None
     for p in sorted(folder.iterdir()):
         if not p.is_file() or p.suffix.lower() not in ('.xlsx', '.xlsm') or p.name.startswith('~$'):
             continue
-        names = [_key(n) for n in _sheet_names(p)]
         if weights is None and 'danh mục' in _key(p.name):
             weights = p
-        elif quote is None and any('báo giá' in n or 'bao gia' in n for n in names):
-            quote = p
-        elif template is None and _key(PXK_SHEET) in names:
-            template = p
-    if quote is None:
+            continue
+        names, layout = _inspect(p)
+        if any('báo giá' in n or 'bao gia' in n for n in names):
+            quotes.append(p)
+        elif layout:
+            templates.append(p)
+        elif layout is False:
+            wrong_layout.append(p)
+    if not quotes:
         raise RuntimeError('Không thấy BẢNG CHÀO GIÁ (file Excel có sheet "Bảng báo giá") trong thư mục công cụ.')
-    if template is None:
-        raise RuntimeError('Không thấy MẪU PHIẾU XUẤT KHO (file Excel có sheet "PHIEU XUAT KHO") trong thư mục công cụ.')
-    return {'orders': orders, 'quote': quote, 'template': template, 'weights': weights}
+    if len(quotes) > 1:
+        raise RuntimeError('Có nhiều hơn 1 bảng chào giá trong thư mục công cụ, chỉ để lại 1 file: '
+                           + ', '.join(p.name for p in quotes))
+    if not templates:
+        extra = (' (các file sau có sheet "PHIEU XUAT KHO" nhưng không đúng bố cục mẫu 3 dòng hàng: '
+                 + ', '.join(p.name for p in wrong_layout) + ')') if wrong_layout else ''
+        raise RuntimeError('Không thấy MẪU PHIẾU XUẤT KHO (file Excel có sheet "PHIEU XUAT KHO") trong thư mục công cụ'
+                           + extra + '.')
+    if len(templates) > 1:
+        raise RuntimeError('Có nhiều hơn 1 mẫu phiếu xuất kho trong thư mục công cụ, chỉ để lại 1 file: '
+                           + ', '.join(p.name for p in templates))
+    return {'orders': orders, 'quote': quotes[0], 'template': templates[0], 'weights': weights}
 
 
 def _header_cols(ws, needed, max_scan=12):
@@ -216,6 +245,12 @@ def check_order(order):
             w.append(f'Tổng số lượng các dòng ({s_sl:,}) khác "Số lượng" trên đơn ({t.get("so_luong", 0):,}).')
         if t.get('chiet_khau'):
             w.append(f'Đơn có chiết khấu {t["chiet_khau"]:,} — chưa hỗ trợ, lập phiếu tay.')
+        if s_tt != t.get('gia_tri'):
+            w.append(f'Tổng thành tiền các dòng ({s_tt:,}) khác "Giá trị đơn" trên đơn ({t.get("gia_tri", 0):,}).')
+        thue_8 = round(t.get('tien_hang', 0) * 8 / 108)  # giá đã gồm VAT 8%: thuế = tiền hàng × 8/108
+        if abs(t.get('thue', 0) - thue_8) > max(2, len(order['lines'])):  # chênh do làm tròn từng dòng
+            w.append(f'Thuế trên đơn ({t.get("thue", 0):,}) không khớp VAT 8% ({thue_8:,}) — phiếu tính VAT 8%, '
+                     'lập phiếu tay.')
     if order.get('so_stt') and order['so_stt'] != len(order['lines']):
         w.append(f'Đơn có {order["so_stt"]} dòng nhưng chỉ đọc được {len(order["lines"])} dòng.')
     return w
@@ -266,14 +301,29 @@ COUNTER_FILE = ROOT / 'so-phieu-pxk.txt'
 KHO_CODE, KHO_XUAT, XUAT_TAI = 'KHO-PQ', 'KHO-PQ', 'KHO PHÚ QUỐC'
 
 
-def next_number(path, ngay):
+def _max_issued(out_dir, ngay):
+    """Số PXK lớn nhất đã lập trong tháng của `ngay` (theo tên file dd.mm-PXK<n>-... và năm sửa file)."""
+    from datetime import datetime
+    best = 0
+    if out_dir and Path(out_dir).is_dir():
+        for p in Path(out_dir).glob('*.xlsx'):
+            m = re.match(r'\d{2}\.(\d{2})-PXK(\d+)-', p.name)
+            if m and m.group(1) == f'{ngay:%m}' and datetime.fromtimestamp(p.stat().st_mtime).year == ngay.year:
+                best = max(best, int(m.group(2)))
+    return best
+
+
+def next_number(path, ngay, out_dir=None):
+    """Số phiếu kế tiếp trong tháng: theo file đếm, nhưng không thấp hơn số PXK đã có trong thư mục kết quả
+    (mất/sửa sai file đếm cũng không cấp trùng số)."""
+    n = 0
     try:
-        mmyy, n = Path(path).read_text('utf-8').split()[:2]
+        mmyy, last = Path(path).read_text('utf-8').split()[:2]
         if mmyy == f'{ngay:%m%y}':
-            return int(n) + 1
+            n = int(last)
     except (OSError, ValueError):
         pass
-    return 1
+    return max(n, _max_issued(out_dir, ngay)) + 1
 
 
 def save_number(path, ngay, n):
@@ -283,10 +333,6 @@ def save_number(path, ngay, n):
 # =====================================================================
 # điền phiếu xuất kho (bản sao mẫu; dựng lại khối TỔNG/VAT/chữ ký theo số dòng)
 # =====================================================================
-# Vị trí theo mẫu "PHIEU XUAT KHO": tiêu đề dòng 13, dòng hàng 14.. (mẫu 3 dòng), TỔNG 17, VAT 18–20, chữ ký 23.
-_FIRST, _ORIG_N, _ORIG_TONG, _NCOL = 14, 3, 17, 13
-
-
 def _safe(s):
     return re.sub(r'[\\/:*?"<>|]+', '_', str(s or '')).strip() or 'X'
 
@@ -301,10 +347,9 @@ def pxk_name(order, n, ngay):
 
 
 def fill_pxk(order, rows, template, out_dir, n, ngay):
-    """Điền 1 đơn vào bản sao mẫu PXK. Trả đường dẫn file. Không sửa file mẫu."""
-    import shutil
-    from copy import copy
-    from openpyxl.utils import get_column_letter as col
+    """Điền 1 đơn vào bản sao mẫu PXK. Trả đường dẫn file. Không sửa file mẫu.
+    Lỗi giữa chừng -> không để lại file PXK (lần chạy sau lập lại đơn này)."""
+    import os
     template = Path(template)
     if not template.exists():
         raise RuntimeError(f'Không tìm thấy mẫu phiếu xuất kho: {template}')
@@ -312,12 +357,28 @@ def fill_pxk(order, rows, template, out_dir, n, ngay):
         raise RuntimeError('Đơn không có dòng hàng.')
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     out = Path(out_dir) / pxk_name(order, n, ngay)
-    shutil.copyfile(template, out)
-    wb = load_workbook(out)
-    if PXK_SHEET not in wb.sheetnames:
+    tmp = out.with_name(out.name + '.tmp')  # đuôi .tmp: không bị nhận là PXK đã lập
+    wb = load_workbook(template)            # lưu ra file khác -> mẫu gốc không đổi
+    try:
+        sh = _pxk_sheet(wb)
+        if not sh:
+            raise RuntimeError(f'File mẫu thiếu sheet "{PXK_SHEET}".')
+        if not _layout_ok(wb[sh]):
+            raise RuntimeError('File mẫu không đúng bố cục (tiêu đề dòng 13, dòng TỔNG ở dòng 17).')
+        _fill_sheet(wb[sh], order, rows, n, ngay)
+        wb.save(tmp)
+        os.replace(tmp, out)
+    finally:
         wb.close()
-        raise RuntimeError(f'File mẫu thiếu sheet "{PXK_SHEET}".')
-    ws = wb[PXK_SHEET]
+        if tmp.exists():
+            tmp.unlink()
+    return out
+
+
+def _fill_sheet(ws, order, rows, n, ngay):
+    from copy import copy
+    from openpyxl.utils import get_column_letter as col
+    from openpyxl.utils.cell import range_boundaries
     N, delta = len(rows), len(rows) - _ORIG_N
     max_row = ws.max_row
     data_style = {c: copy(ws.cell(_FIRST, c)._style) for c in range(1, _NCOL + 1)}
@@ -357,6 +418,9 @@ def fill_pxk(order, rows, template, out_dir, n, ngay):
     for c1, r1, c2, r2 in merges:
         if r1 >= _FIRST:
             ws.merge_cells(f'{col(c1)}{r1 + delta}:{col(c2)}{r2 + delta}')
+    if ws.auto_filter.ref:  # vùng lọc của mẫu (A13:M20) giãn theo số dòng
+        c1, r1, c2, r2 = range_boundaries(ws.auto_filter.ref)
+        ws.auto_filter.ref = f'{col(c1)}{r1}:{col(c2)}{r2 + delta if r2 >= _ORIG_TONG else r2}'
     h = order['header']
     kg = sum(r['kg'] for r in rows)
     ws['A5'] = f'Ngày   {ngay:%d}  tháng   {ngay:%m}  năm {ngay:%Y}'
@@ -368,9 +432,6 @@ def fill_pxk(order, rows, template, out_dir, n, ngay):
     ws['I1'] = f'{h.get("ma_don", "")}\nSố: PXK/{KHO_CODE}{ngay:%m%y}/{n}'
     ws['I9'] = f'Đơn hàng(PO) số:{h.get("ma_don", "")}'
     ws['L11'] = f'Khối lượng:  {round(kg, 1):g} Kg'
-    wb.save(out)
-    wb.close()
-    return out
 
 
 # =====================================================================
@@ -447,11 +508,14 @@ def run(folder, ngay=None, counter=None):
         if da_co:
             res.update(status='Bỏ qua: đã có phiếu xuất kho của đơn này', pxk=str(da_co[0]))
             continue
-        n = next_number(counter, ngay)
+        n = next_number(counter, ngay, out_dir)
         try:
             res['pxk'] = str(fill_pxk(order, rows, inp['template'], out_dir, n, ngay))
         except PermissionError:
             res['status'] = 'Không tạo PXK: file đang mở trong Excel — đóng file rồi chạy lại.'
+            continue
+        except Exception as e:  # lỗi 1 đơn không làm dừng cả loạt; không cấp số
+            res['status'] = f'Không tạo PXK: lỗi khi lập phiếu ({e})'
             continue
         save_number(counter, ngay, n)
         res['status'] = 'Đã tạo PXK'

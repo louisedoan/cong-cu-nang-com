@@ -8,8 +8,15 @@ TOOL PHIẾU XUẤT KHO — đọc đơn đặt hàng PDF, tạo phiếu xuất 
 2. Nhấp đúp "Tao-phieu-xuat-kho.bat".
    Lần đầu: màn hình xin MÃ KÍCH HOẠT — gửi Mã thiết bị cho quản trị viên, nhận mã NC1-/NC2- (20 ngày) rồi dán vào.
 3. Kết quả nằm trong thư mục "Phiếu xuất kho":
-   - Mỗi đơn 1 file "PXK <mã đơn> <siêu thị>.xlsx" (giá theo đơn; đơn giá 1 chai = giá đơn ÷ 1,08 vì PXK cộng VAT 8%).
+   - Mỗi đơn 1 file "<ngày.tháng>-PXK<số>-<siêu thị>-<mã đơn>.xlsx", số phiếu "PXK/KHO-PQ<mmyy>/<số>" (giá theo đơn; đơn giá 1 chai = giá đơn ÷ 1,08 vì PXK cộng VAT 8%).
    - "Tong hop doi chieu <ngày>.xlsx": tổng tiền, khối lượng, dòng LỆCH GIÁ so với bảng chào giá, mã thiếu.
    Dòng lệch giá vẫn lên phiếu theo giá đơn, kèm ghi chú ở cột "Ghi chú" — kiểm tra trước khi in.
+
+4. Số phiếu tự tăng trong tháng, sang tháng mới đếm lại từ 1; số đã dùng ghi ở file "so-phieu-pxk.txt"
+   (dạng "1126 4" = tháng 11/2026 đã tới số 4). Muốn bắt đầu từ số khác: sửa số cuối trong file này.
+5. Chạy lại: đơn đã có phiếu trong "Phiếu xuất kho" được bỏ qua (không cấp số mới). Muốn lập lại phiếu của 1 đơn:
+   xóa file PXK cũ của đơn đó rồi chạy lại. Đơn báo "Không tạo PXK" (đọc thiếu dòng, lệch tổng, có chiết khấu,
+   thuế khác 8%...) thì lập tay.
+6. Trong thư mục chỉ để 1 bảng chào giá và 1 mẫu phiếu xuất kho (mẫu 3 dòng hàng như file gốc).
 
 Công cụ không gửi gì qua mạng; file gốc (đơn, bảng giá, mẫu, danh mục) không bị sửa.
