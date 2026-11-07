@@ -1,0 +1,15 @@
+TOOL PHIẾU XUẤT KHO — đọc đơn đặt hàng PDF, tạo phiếu xuất kho theo mẫu, đối chiếu bảng chào giá
+
+1. Đặt vào CÙNG thư mục này:
+   - Các file đơn đặt hàng PDF (vd "NÀNG CƠM Z1.pdf"...). Hiện hỗ trợ mẫu đơn ZMART Phú Quốc.
+   - Bảng chào giá: file Excel có sheet "Bảng báo giá" (vd "Bangchao_gia_MT (1).xlsx").
+   - Mẫu phiếu xuất kho: file Excel có sheet "PHIEU XUAT KHO" (vd "30.10-PXK12-MAX-...xlsx").
+   - Danh mục tải trọng: "DANH MỤC HH KÊNH MT.xlsx" (để tính khối lượng; thiếu thì khối lượng = 0 và có ghi chú).
+2. Nhấp đúp "Tao-phieu-xuat-kho.bat".
+   Lần đầu: màn hình xin MÃ KÍCH HOẠT — gửi Mã thiết bị cho quản trị viên, nhận mã NC1-/NC2- (20 ngày) rồi dán vào.
+3. Kết quả nằm trong thư mục "Phiếu xuất kho":
+   - Mỗi đơn 1 file "PXK <mã đơn> <siêu thị>.xlsx" (giá theo đơn; đơn giá 1 chai = giá đơn ÷ 1,08 vì PXK cộng VAT 8%).
+   - "Tong hop doi chieu <ngày>.xlsx": tổng tiền, khối lượng, dòng LỆCH GIÁ so với bảng chào giá, mã thiếu.
+   Dòng lệch giá vẫn lên phiếu theo giá đơn, kèm ghi chú ở cột "Ghi chú" — kiểm tra trước khi in.
+
+Công cụ không gửi gì qua mạng; file gốc (đơn, bảng giá, mẫu, danh mục) không bị sửa.

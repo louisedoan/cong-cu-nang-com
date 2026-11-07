@@ -59,3 +59,8 @@ license-admin/
 .env.*
 # danh sách mã kích hoạt nếu lỡ lưu ra file
 *ma-kich-hoat*.txt
+
+# Đơn đặt hàng PDF (dữ liệu khách) + phiếu xuất kho tạo ra — không đưa lên GitHub
+*.pdf
+*.PDF
+Phiếu xuất kho/
