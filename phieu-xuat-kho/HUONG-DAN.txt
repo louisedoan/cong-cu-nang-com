@@ -1,22 +1,137 @@
-TOOL PHIẾU XUẤT KHO — đọc đơn đặt hàng PDF, tạo phiếu xuất kho theo mẫu, đối chiếu bảng chào giá
+PHIẾU XUẤT KHO TỪ ĐƠN ĐẶT HÀNG PDF
+==================================
 
-1. Đặt vào CÙNG thư mục này:
-   - Các file đơn đặt hàng PDF (vd "NÀNG CƠM Z1.pdf"...). Hiện hỗ trợ mẫu đơn ZMART Phú Quốc.
-   - Bảng chào giá: file Excel có sheet "Bảng báo giá" (vd "Bangchao_gia_MT (1).xlsx").
-   - Mẫu phiếu xuất kho: file Excel có sheet "PHIEU XUAT KHO" (vd "30.10-PXK12-MAX-...xlsx").
-   - Danh mục tải trọng: "DANH MỤC HH KÊNH MT.xlsx" (để tính khối lượng; thiếu thì khối lượng = 0 và có ghi chú).
-2. Nhấp đúp "Tao-phieu-xuat-kho.bat".
-   Lần đầu: màn hình xin MÃ KÍCH HOẠT — gửi Mã thiết bị cho quản trị viên, nhận mã NC1-/NC2- (20 ngày) rồi dán vào.
-3. Kết quả nằm trong thư mục "Phiếu xuất kho":
-   - Mỗi đơn 1 file "<ngày.tháng>-PXK<số>-<siêu thị>-<mã đơn>.xlsx", số phiếu "PXK/KHO-PQ<mmyy>/<số>" (giá theo đơn; đơn giá 1 chai = giá đơn ÷ 1,08 vì PXK cộng VAT 8%).
-   - "Tong hop doi chieu <ngày>.xlsx": tổng tiền, khối lượng, dòng LỆCH GIÁ so với bảng chào giá, mã thiếu.
-   Dòng lệch giá vẫn lên phiếu theo giá đơn, kèm ghi chú ở cột "Ghi chú" — kiểm tra trước khi in.
+CÔNG CỤ LÀM GÌ
+- Đọc MỌI đơn đặt hàng PDF đặt trong thư mục này (chạy cả loạt một lần).
+- Mỗi đơn ra 1 phiếu xuất kho (PXK) theo đúng mẫu: đủ dòng hàng, tổng tiền, VAT 8%, khối lượng, số phiếu.
+- Đối chiếu giá trên đơn với BẢNG CHÀO GIÁ: dòng lệch giá được ghi chú và liệt kê trong file tổng hợp.
+- Hiện đọc được mẫu đơn của ZMART Phú Quốc. Đơn mẫu khác: công cụ báo "Chưa hỗ trợ mẫu đơn này", không lập phiếu.
 
-4. Số phiếu tự tăng trong tháng, sang tháng mới đếm lại từ 1; số đã dùng ghi ở file "so-phieu-pxk.txt"
-   (dạng "1126 4" = tháng 11/2026 đã tới số 4). Muốn bắt đầu từ số khác: sửa số cuối trong file này.
-5. Chạy lại: đơn đã có phiếu trong "Phiếu xuất kho" được bỏ qua (không cấp số mới). Muốn lập lại phiếu của 1 đơn:
-   xóa file PXK cũ của đơn đó rồi chạy lại. Đơn báo "Không tạo PXK" (đọc thiếu dòng, lệch tổng, có chiết khấu,
-   thuế khác 8%...) thì lập tay.
-6. Trong thư mục chỉ để 1 bảng chào giá và 1 mẫu phiếu xuất kho (mẫu 3 dòng hàng như file gốc).
 
-Công cụ không gửi gì qua mạng; file gốc (đơn, bảng giá, mẫu, danh mục) không bị sửa.
+CHUẨN BỊ (LÀM MỘT LẦN)
+- Máy cần có Python (không cần cài thêm gì). Nếu chưa có, Tao-phieu-xuat-kho.bat sẽ hiện hướng dẫn cài.
+- Giữ NGUYÊN thư mục "thu-vien" (thư viện đi kèm + phần cấp phép) — không xóa, không sửa.
+- Kích hoạt license (xem mục LICENSE ở cuối).
+
+
+CÁC FILE CẦN ĐẶT TRONG THƯ MỤC NÀY (ngay trong thư mục, không để trong thư mục con)
+  File                       Bắt buộc?   Nhận biết bằng                          Ví dụ
+  -------------------------  ----------  --------------------------------------  -----------------------------------
+  Đơn đặt hàng PDF           có          mọi file .pdf                           NÀNG CƠM Z1.pdf, NÀNG CƠM Z2.pdf...
+  Bảng chào giá              có (1 file) file Excel có sheet "Bảng báo giá"      Bangchao_gia_MT (1).xlsx
+  Mẫu phiếu xuất kho         có (1 file) file Excel có sheet "PHIEU XUAT KHO",   30.10-PXK12-MAX-ĐN-HO-PO00095890.xlsx
+                                         bố cục mẫu 3 dòng hàng
+  Danh mục tải trọng         nên có      tên file có chữ "DANH MỤC"              DANH MỤC HH KÊNH MT.xlsx
+
+  - Chỉ để 1 bảng chào giá và 1 mẫu PXK. Có 2 file cùng loại -> công cụ báo tên các file để bạn bỏ bớt.
+  - Mẫu PXK phải là mẫu gốc 3 dòng hàng (tiêu đề bảng ở dòng 13, dòng TỔNG ở dòng 17). Phiếu đã lập (nhiều dòng)
+    không dùng làm mẫu được.
+  - Thiếu danh mục tải trọng: phiếu vẫn lập, nhưng khối lượng = 0 và mỗi dòng có ghi chú "Chưa có tải trọng".
+
+
+CÁCH CHẠY
+1. Chép các đơn PDF cần lập phiếu vào thư mục này.
+2. Đóng các file phiếu xuất kho / tổng hợp đang mở trong Excel (nếu có).
+3. Nhấp đúp "Tao-phieu-xuat-kho.bat".
+4. Màn hình đen hiện kết quả từng đơn, ví dụ:
+       • NÀNG CƠM Z1.pdf — SIÊU THỊ ZMART 1 OSN06393: Đã tạo PXK
+         16 dòng · 8,989,200đ · 168.2 Kg → 07.11-PXK1-ZMART 1-OSN06393.xlsx
+         (!) Chưa có tải trọng: <mã vạch> Bổ sung vào DANH MỤC HH KÊNH MT rồi chạy lại
+   Dòng có "(!)" là việc cần kiểm. Bấm phím bất kỳ để đóng.
+5. Mở thư mục "Phiếu xuất kho" để xem / in phiếu. Đọc file tổng hợp trước, kiểm các dòng có ghi chú, rồi mới in.
+
+
+KẾT QUẢ (trong thư mục "Phiếu xuất kho")
+1) Mỗi đơn 1 file phiếu xuất kho:  <ngày.tháng>-PXK<số>-<siêu thị>-<mã đơn>.xlsx
+   VD: 07.11-PXK1-ZMART 1-OSN06393.xlsx
+   Phần đầu phiếu:
+   - Số phiếu (góc phải trên):  <mã đơn> / Số: PXK/KHO-PQ<tháng năm>/<số>   VD: PXK/KHO-PQ1126/1
+   - Ngày: ngày chạy công cụ.
+   - Đơn vị nhận hàng: tên công ty + MST trên đơn.  Người nhận hàng: tên siêu thị.  Địa chỉ: địa chỉ kinh doanh trên đơn.
+   - Lý do xuất: Xuất kho bán hàng.  Xuất tại: KHO PHÚ QUỐC.  Đơn hàng (PO) số: mã đơn.
+   - Khối lượng: tổng kg của cả phiếu (làm tròn 1 số lẻ).
+   Bảng hàng (mỗi dòng đơn = 1 dòng phiếu, KHÔNG bỏ dòng nào, giữ thứ tự như trên đơn):
+   - Kho xuất: KHO-PQ.  Mã vạch, Tên sản phẩm, ĐVT, Quy cách: theo bảng chào giá.
+   - Số xuất (thùng) = số lượng trên đơn ÷ quy cách. Không chẵn thùng thì hiện số lẻ (VD 1.5).
+   - Đơn giá (1pcs) = giá trên đơn ÷ 1,08 (giá đơn ZMART đã gồm VAT 8%; phiếu ghi giá chưa VAT rồi cộng VAT ở dưới).
+   - Tổng đơn vị, Đơn giá thùng, Thành tiền: công thức Excel như mẫu.
+   - Ghi chú: lệch giá / không có trong bảng chào giá / chưa có tải trọng (nếu có).
+   Phần cuối: TỔNG, Thuế VAT 8%, Tổng sau VAT (= đúng tiền "Giá trị đơn" trên đơn PDF), khối chữ ký.
+
+2) File tổng hợp đối chiếu:  Tong hop doi chieu <ngày giờ chạy>.xlsx
+   - Sheet "Tổng hợp": mỗi đơn 1 dòng — siêu thị, mã đơn, file đơn, trạng thái, số dòng, tổng tiền đơn (đã VAT),
+     khối lượng, số dòng lệch giá / chưa có trong bảng giá / chưa có tải trọng, tên file PXK.
+   - Sheet "Chi tiết cần kiểm": từng dòng cần xem lại (mã vạch, loại, chi tiết).
+
+
+CÁCH TÍNH
+- Thành tiền mỗi dòng = số lượng × đơn giá trên đơn. Công cụ kiểm: tổng các dòng = "Tổng tiền hàng" và
+  "Giá trị đơn" trên đơn; tổng số lượng = "Số lượng" trên đơn; số dòng đọc được = số dòng (STT) trên đơn.
+- Khối lượng dòng = số lượng (chai/hũ/can) × (tải trọng 1 thùng ÷ quy cách) theo DANH MỤC HH KÊNH MT
+  (tính theo từng chai vì quy cách trong danh mục có thể khác bảng chào giá).
+- So giá: giá trên đơn so với cột "Giá cung cấp" (đã gồm VAT) của bảng chào giá, theo mã vạch.
+
+
+CẢNH BÁO VÀ CÁCH XỬ LÝ
+Phiếu VẪN được lập, chỉ cần kiểm:
+- "Lệch giá" (Giá đơn X ≠ báo giá Y): phiếu giữ giá trên đơn. Kiểm với phòng kinh doanh xem giá nào đúng.
+- "Không có trong bảng chào giá": mã vạch trên đơn không có trong bảng giá -> dòng vẫn lên phiếu với tên "Mã <mã vạch>",
+  ĐVT theo đơn, quy cách theo danh mục (không có thì 1). Sửa tên trên phiếu hoặc bổ sung mã vào bảng giá rồi lập lại.
+- "Chưa có tải trọng": mã chưa có tải trọng trong danh mục -> tính 0 kg. Bổ sung vào DANH MỤC HH KÊNH MT rồi lập lại
+  Xem mã vạch cần bổ sung ở sheet "Chi tiết cần kiểm" của file tổng hợp.
+
+KHÔNG lập phiếu (trạng thái "Không tạo PXK: ..." — lập tay hoặc báo người quản lý công cụ):
+- Đọc thiếu dòng / tổng các dòng khác tổng trên đơn / số lượng lệch.
+- Đơn có chiết khấu (chưa hỗ trợ).
+- Thuế trên đơn không phải VAT 8%.
+- File PDF lỗi, hoặc mẫu đơn không phải ZMART.
+- File phiếu đang mở trong Excel -> đóng file rồi chạy lại.
+
+
+SỐ PHIẾU
+- Tự tăng trong tháng: PXK1, PXK2, ... Sang tháng mới đếm lại từ 1.
+- Số đã dùng lưu ở file "so-phieu-pxk.txt" trong thư mục này, dạng:  1126 4   (= tháng 11/2026, đã dùng tới số 4).
+- Muốn bắt đầu từ số khác (VD số tiếp theo là 13): tạo/sửa file này thành  1126 12  rồi lưu.
+- Công cụ không cấp số nhỏ hơn số PXK lớn nhất đang có trong thư mục "Phiếu xuất kho" của tháng đó
+  (mất file đếm cũng không bị trùng số).
+- Đơn không lập được phiếu thì không chiếm số.
+
+
+CHẠY LẠI / LẬP LẠI PHIẾU
+- Chạy lại bao nhiêu lần cũng được: đơn đã có phiếu trong "Phiếu xuất kho" (cùng mã đơn) được BỎ QUA, không cấp số mới.
+  -> Có đơn mới: chỉ cần thêm PDF vào thư mục rồi chạy; đơn cũ để nguyên cũng không sao.
+- Lập lại phiếu của 1 đơn (VD sau khi bổ sung tải trọng / sửa bảng giá): xóa file PXK cũ của đơn đó trong
+  "Phiếu xuất kho" rồi chạy lại. Phiếu mới nhận số kế tiếp; cần giữ số cũ thì sửa tay ô số phiếu và tên file.
+- Mỗi lần chạy tạo thêm 1 file tổng hợp mới (tên có giờ chạy); file cũ xóa được.
+
+
+LỖI THƯỜNG GẶP
+- "Không thấy BẢNG CHÀO GIÁ" / "Không thấy MẪU PHIẾU XUẤT KHO": thiếu file, hoặc file nằm trong thư mục con,
+  hoặc mẫu không đúng bố cục 3 dòng hàng -> chép đúng file vào thư mục này.
+- "Có nhiều hơn 1 bảng chào giá / mẫu phiếu xuất kho": để lại 1 file, chuyển file kia ra chỗ khác.
+- "file đang mở trong Excel": đóng file trong Excel rồi chạy lại.
+- "Chưa hỗ trợ mẫu đơn này": PDF không phải đơn ZMART -> lập tay.
+- "MAY NAY CHUA CAI PYTHON": cài Python theo hướng dẫn trên màn hình (nhớ tick "Add python.exe to PATH").
+
+
+GỬI SANG MÁY KHÁC
+- Copy NGUYÊN thư mục này (bắt buộc có "thu-vien"). Máy đó chỉ cần có Python.
+- Máy mới cần kích hoạt license riêng (Mã thiết bị mỗi máy khác nhau).
+- Muốn số phiếu chạy tiếp như máy cũ: copy kèm file "so-phieu-pxk.txt".
+
+
+LICENSE (CẤP PHÉP) — BẮT BUỘC
+- Lần đầu dùng, hoặc khi license hết hạn, công cụ hiện ô "Mã kích hoạt" kèm "Mã thiết bị" của máy.
+  Gửi Mã thiết bị (dạng XXXX-XXXX-XXXX-XXXX) cho quản trị viên -> nhận mã bắt đầu bằng NC1- hoặc NC2-
+  -> dán vào ô -> bấm "Kích hoạt".
+- Mỗi mã chỉ dùng MỘT lần, cho ĐÚNG máy này, hiệu lực 20 ngày TÍNH TỪ LÚC QUẢN TRỊ VIÊN TẠO MÃ
+  (không phải lúc nhập) -> nhập ngay khi nhận được. License dùng chung cho các công cụ Nàng Cơm trên cùng máy.
+- Hết hạn: công cụ không lập phiếu cho tới khi nhập mã mới. Phiếu đã lập, file đếm số, đơn PDF GIỮ NGUYÊN.
+- Không cần Internet. Giữ đồng hồ Windows đúng giờ (bật "Đặt giờ tự động"); lùi giờ sẽ bị khóa.
+- Cài lại Windows / đổi máy: Mã thiết bị đổi -> gửi mã mới cho quản trị viên để được cấp lại.
+- Xem trạng thái: mở cmd trong thư mục "thu-vien" rồi gõ  python -m licensing status
+
+
+AN TOÀN DỮ LIỆU
+- Công cụ chỉ đọc file trong thư mục này, không gửi gì qua mạng.
+- Không sửa file gốc (đơn PDF, bảng chào giá, mẫu phiếu, danh mục). Phiếu được lập trên bản sao của mẫu.
